@@ -12,7 +12,7 @@ pub fn part_one(input: &str) -> Option<u32> {
     return Some(calibration_factors.iter().sum());
 }
 
-const REPLACEMENTS: [(&str, u32); 18] = [
+static REPLACEMENTS: &[(&str, u32)] = &[
     ("one", 1),
     ("two", 2),
     ("three", 3),
@@ -33,10 +33,10 @@ const REPLACEMENTS: [(&str, u32); 18] = [
     ("9", 9),
 ];
 
-fn get_numbers(line: &&str) -> Vec<u32> {
+fn get_numbers(line: String) -> Vec<u32> {
     let mut entries: Vec<(usize, u32)> = Vec::new();
 
-    for (from, to) in REPLACEMENTS {
+    for &(from, to) in REPLACEMENTS {
         let indices: Vec<_> = line.match_indices(from).map(|(i, _)| (i, to)).collect();
         entries.extend_from_slice(indices.as_slice());
     }
@@ -46,10 +46,10 @@ fn get_numbers(line: &&str) -> Vec<u32> {
     return entries.into_iter().map(|(_, x)| x).collect();
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
-    let lines: Vec<&str> = input.split("\n").collect();
+pub fn part_two(input: &String) -> Option<u32> {
+    let lines: Vec<_> = input.split("\n").map(String::from).collect();
     let number_lines: Vec<Vec<u32>> = lines
-        .iter()
+        .into_iter()
         .map(get_numbers)
         .filter(|v: &Vec<u32>| v.len() >= 1)
         .collect();
