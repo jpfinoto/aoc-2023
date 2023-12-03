@@ -1,20 +1,16 @@
 use regex::{Match, Regex};
 
+use advent_of_code::utils::grid::{BoundedArea, find_neighbours, GridCell, Gridded};
+
 advent_of_code::solution!(3);
 
-struct GridRow {
-    row: i32,
-    left: i32,
-    right: i32,
-}
-
 struct NumberCell {
-    location: GridRow,
+    location: GridCell,
     value: u32,
 }
 
 struct SymbolCell {
-    location: GridRow,
+    location: GridCell,
     symbol: char,
 }
 
@@ -23,43 +19,27 @@ enum Cell {
     Symbol(SymbolCell),
 }
 
-trait Gridded {
-    fn intersects(&self, point: &(i32, i32)) -> bool;
-    fn neighbours(&self) -> Vec<(i32, i32)>;
-}
-
-impl Gridded for GridRow {
-    fn intersects(&self, point: &(i32, i32)) -> bool {
-        let &(row, col) = point;
-        self.row == row && col >= self.left && col < self.right
-    }
-
-    fn neighbours(&self) -> Vec<(i32, i32)> {
-        let top_edge = (self.left - 1..self.right + 1).map(|i| (self.row - 1, i));
-        let bottom_edge = (self.left - 1..self.right + 1).map(|i| (self.row + 1, i));
-        let sides = [(self.row, self.left - 1), (self.row, self.right)];
-
-        Vec::from_iter(top_edge.chain(bottom_edge).chain(sides))
-    }
-}
-
-impl Gridded for SymbolCell {
-    fn intersects(&self, point: &(i32, i32)) -> bool {
-        self.location.intersects(point)
-    }
-
+impl Gridded<(i32, i32)> for SymbolCell {
     fn neighbours(&self) -> Vec<(i32, i32)> {
         self.location.neighbours()
     }
 }
 
-impl Gridded for NumberCell {
-    fn intersects(&self, point: &(i32, i32)) -> bool {
-        self.location.intersects(point)
+impl BoundedArea<(i32, i32)> for SymbolCell {
+    fn contains(&self, point: &(i32, i32)) -> bool {
+        self.location.contains(point)
     }
+}
 
+impl Gridded<(i32, i32)> for NumberCell {
     fn neighbours(&self) -> Vec<(i32, i32)> {
         self.location.neighbours()
+    }
+}
+
+impl BoundedArea<(i32, i32)> for NumberCell {
+    fn contains(&self, point: &(i32, i32)) -> bool {
+        self.location.contains(point)
     }
 }
 
@@ -68,8 +48,9 @@ fn match_to_cell(m: &Match, row_number: i32) -> Option<Cell> {
         return None;
     }
 
-    let location = GridRow {
-        row: row_number,
+    let location = GridCell {
+        top: row_number,
+        bottom: row_number,
         left: m.start() as i32,
         right: m.end() as i32,
     };
@@ -100,17 +81,6 @@ fn parse(input: &str) -> Vec<Cell> {
         .enumerate()
         .map(|(i, line)| parse_row(line, i as i32))
         .flatten()
-        .collect()
-}
-
-fn find_neighbours<'a, I, G>(item: &I, grid: &'a Vec<&G>) -> Vec<&'a G> where I: Gridded, G: Gridded {
-    let neighbour_points = item.neighbours();
-
-    grid
-        .into_iter()
-        .filter(
-            |&&s| neighbour_points.iter().any(|p| s.intersects(p)))
-        .cloned()
         .collect()
 }
 
