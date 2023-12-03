@@ -2,18 +2,25 @@ use regex::{Match, Regex};
 
 advent_of_code::solution!(3);
 
-#[derive(Debug)]
-enum SpanValue {
-    Number(u32),
-    Symbol(char),
-}
-
-#[derive(Debug)]
-struct Span {
+struct GridRow {
     row: i32,
     left: i32,
     right: i32,
-    value: SpanValue,
+}
+
+struct NumberCell {
+    location: GridRow,
+    value: u32,
+}
+
+struct SymbolCell {
+    location: GridRow,
+    symbol: char,
+}
+
+enum Cell {
+    Number(NumberCell),
+    Symbol(SymbolCell),
 }
 
 trait Gridded {
@@ -21,7 +28,7 @@ trait Gridded {
     fn neighbours(&self) -> Vec<(i32, i32)>;
 }
 
-impl Gridded for Span {
+impl Gridded for GridRow {
     fn intersects(&self, point: &(i32, i32)) -> bool {
         let &(row, col) = point;
         self.row == row && col >= self.left && col < self.right
@@ -36,37 +43,59 @@ impl Gridded for Span {
     }
 }
 
-fn get_span_from_match(m: &Match, row_number: i32) -> Option<Span> {
+impl Gridded for SymbolCell {
+    fn intersects(&self, point: &(i32, i32)) -> bool {
+        self.location.intersects(point)
+    }
+
+    fn neighbours(&self) -> Vec<(i32, i32)> {
+        self.location.neighbours()
+    }
+}
+
+impl Gridded for NumberCell {
+    fn intersects(&self, point: &(i32, i32)) -> bool {
+        self.location.intersects(point)
+    }
+
+    fn neighbours(&self) -> Vec<(i32, i32)> {
+        self.location.neighbours()
+    }
+}
+
+fn match_to_cell(m: &Match, row_number: i32) -> Option<Cell> {
     if m.as_str().trim().len() == 0 {
         return None;
     }
 
-    let value = match u32::from_str_radix(m.as_str(), 10) {
-        Ok(value) => SpanValue::Number(value),
-        Err(_) => SpanValue::Symbol(m.as_str().chars().next().unwrap())
-    };
-
-    Some(Span {
+    let location = GridRow {
         row: row_number,
         left: m.start() as i32,
         right: m.end() as i32,
-        value,
-    })
+    };
+
+    if let Ok(value) = u32::from_str_radix(m.as_str(), 10) {
+        Some(Cell::Number(NumberCell { location, value }))
+    } else if let Some(symbol) = m.as_str().chars().next() {
+        Some(Cell::Symbol(SymbolCell { location, symbol }))
+    } else {
+        None
+    }
 }
 
-fn parse_row(line: &str, row_number: i32) -> Vec<Span> {
+fn parse_row(line: &str, row_number: i32) -> Vec<Cell> {
     let span_re = Regex::new(r"(\d+|[^.])").unwrap();
 
     span_re
         .captures_iter(line)
         .map(
-            |cap| cap.get(1).and_then(|m| get_span_from_match(&m, row_number))
+            |cap| cap.get(1).and_then(|m| match_to_cell(&m, row_number))
         )
         .flatten()
         .collect()
 }
 
-fn parse(input: &str) -> Vec<Span> {
+fn parse(input: &str) -> Vec<Cell> {
     input.split("\n")
         .enumerate()
         .map(|(i, line)| parse_row(line, i as i32))
@@ -74,10 +103,10 @@ fn parse(input: &str) -> Vec<Span> {
         .collect()
 }
 
-fn find_neighbours<'a>(span: &Span, all_spans: &'a Vec<&Span>) -> Vec<&'a Span> {
-    let neighbour_points = span.neighbours();
+fn find_neighbours<'a, I, G>(item: &I, grid: &'a Vec<&G>) -> Vec<&'a G> where I: Gridded, G: Gridded {
+    let neighbour_points = item.neighbours();
 
-    all_spans
+    grid
         .into_iter()
         .filter(
             |&&s| neighbour_points.iter().any(|p| s.intersects(p)))
@@ -85,27 +114,27 @@ fn find_neighbours<'a>(span: &Span, all_spans: &'a Vec<&Span>) -> Vec<&'a Span> 
         .collect()
 }
 
+fn get_symbols_and_numbers(spans: &Vec<Cell>) -> (Vec<&SymbolCell>, Vec<&NumberCell>) {
+    let symbols: Vec<_> = spans.iter().filter_map(|cell| match cell {
+        Cell::Number(_) => None,
+        Cell::Symbol(symbol) => Some(symbol),
+    }).collect();
+
+    let numbers: Vec<_> = spans.iter().filter_map(|cell| match cell {
+        Cell::Number(number) => Some(number),
+        Cell::Symbol(_) => None,
+    }).collect();
+
+    (symbols, numbers)
+}
+
 pub fn part_one(input: &str) -> Option<u32> {
     let spans = parse(input);
 
-    let symbols: Vec<_> = spans.iter().filter(|&s| match s.value {
-        SpanValue::Number(_) => false,
-        SpanValue::Symbol(_) => true,
-    }).collect();
-
-    let numbers: Vec<_> = spans.iter().filter(|&s| match s.value {
-        SpanValue::Number(_) => true,
-        SpanValue::Symbol(_) => false,
-    }).collect();
+    let (symbols, numbers) = get_symbols_and_numbers(&spans);
 
     let valid_numbers = numbers.into_iter().filter_map(
-        |s| match find_neighbours(s, &symbols).len() > 0 {
-            true => match s.value {
-                SpanValue::Number(val) => Some(val),
-                SpanValue::Symbol(_) => panic!(),
-            },
-            false => None
-        }
+        |s| if find_neighbours(s, &symbols).len() > 0 { Some(s.value) } else { None }
     );
 
     Some(valid_numbers.sum())
@@ -114,32 +143,22 @@ pub fn part_one(input: &str) -> Option<u32> {
 pub fn part_two(input: &str) -> Option<u32> {
     let spans = parse(input);
 
-    let numbers: Vec<_> = spans.iter().filter(|&s| match s.value {
-        SpanValue::Number(_) => true,
-        SpanValue::Symbol(_) => false,
-    }).collect();
+    let (symbols, numbers) = get_symbols_and_numbers(&spans);
 
-    let gear_ratios = spans
-        .iter()
-        .filter_map(|s| {
-            if let SpanValue::Symbol(symbol) = s.value {
-                if symbol == '*' {
-                    let neighbours = find_neighbours(&s, &numbers);
-                    if neighbours.len() == 2 {
-                        let SpanValue::Number(a) = neighbours.first().unwrap().value else { panic!() };
-                        let SpanValue::Number(b) = neighbours.last().unwrap().value else { panic!() };
-
-                        Some(a * b)
-                    } else {
-                        None
-                    }
+    let gear_ratios = symbols.iter().filter_map(
+        |&s| {
+            if s.symbol == '*' {
+                let neighbours = find_neighbours(s, &numbers);
+                if neighbours.len() == 2 {
+                    Some(neighbours.first().unwrap().value * neighbours.last().unwrap().value)
                 } else {
                     None
                 }
             } else {
                 None
             }
-        });
+        }
+    );
 
     return Some(gear_ratios.sum());
 }
