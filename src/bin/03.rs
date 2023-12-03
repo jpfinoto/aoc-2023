@@ -1,14 +1,16 @@
 use regex::{Match, Regex};
 
-use advent_of_code::utils::grid::{BoundedArea, find_neighbours, GridCell, Gridded};
+use advent_of_code::utils::grid::{Cellular, find_intersections, GridCell, Growable, has_intersections};
 
 advent_of_code::solution!(3);
 
+#[derive(Debug)]
 struct NumberCell {
     location: GridCell,
     value: u32,
 }
 
+#[derive(Debug)]
 struct SymbolCell {
     location: GridCell,
     symbol: char,
@@ -19,29 +21,18 @@ enum Cell {
     Symbol(SymbolCell),
 }
 
-impl Gridded<(i32, i32)> for SymbolCell {
-    fn neighbours(&self) -> Vec<(i32, i32)> {
-        self.location.neighbours()
+impl Cellular for SymbolCell {
+    fn cell(&self) -> &GridCell {
+        &self.location
     }
 }
 
-impl BoundedArea<(i32, i32)> for SymbolCell {
-    fn contains(&self, point: &(i32, i32)) -> bool {
-        self.location.contains(point)
+impl Cellular for NumberCell {
+    fn cell(&self) -> &GridCell {
+        &self.location
     }
 }
 
-impl Gridded<(i32, i32)> for NumberCell {
-    fn neighbours(&self) -> Vec<(i32, i32)> {
-        self.location.neighbours()
-    }
-}
-
-impl BoundedArea<(i32, i32)> for NumberCell {
-    fn contains(&self, point: &(i32, i32)) -> bool {
-        self.location.contains(point)
-    }
-}
 
 fn match_to_cell(m: &Match, row_number: i32) -> Option<Cell> {
     if m.as_str().trim().len() == 0 {
@@ -52,7 +43,7 @@ fn match_to_cell(m: &Match, row_number: i32) -> Option<Cell> {
         top: row_number,
         bottom: row_number,
         left: m.start() as i32,
-        right: m.end() as i32,
+        right: m.end() as i32 - 1,
     };
 
     if let Ok(value) = u32::from_str_radix(m.as_str(), 10) {
@@ -103,11 +94,15 @@ pub fn part_one(input: &str) -> Option<u32> {
 
     let (symbols, numbers) = get_symbols_and_numbers(&spans);
 
-    let valid_numbers = numbers.into_iter().filter_map(
-        |s| if find_neighbours(s, &symbols).len() > 0 { Some(s.value) } else { None }
-    );
+    let valid_numbers: Vec<_> = numbers.into_iter().filter_map(
+        |s| if has_intersections(&s.cell().grow((2, 2)), &symbols) {
+            Some(s.value)
+        } else {
+            None
+        }
+    ).collect();
 
-    Some(valid_numbers.sum())
+    Some(valid_numbers.iter().sum())
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
@@ -118,7 +113,7 @@ pub fn part_two(input: &str) -> Option<u32> {
     let gear_ratios = symbols.iter().filter_map(
         |&s| {
             if s.symbol == '*' {
-                let neighbours = find_neighbours(s, &numbers);
+                let neighbours = find_intersections(&s.cell().grow((2, 2)), &numbers);
                 if neighbours.len() == 2 {
                     Some(neighbours.first().unwrap().value * neighbours.last().unwrap().value)
                 } else {
@@ -147,5 +142,30 @@ mod tests {
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
         assert_eq!(result, Some(467835));
+    }
+
+    #[test]
+    fn test_grow() {
+        let cell = GridCell {
+            left: 0,
+            right: 1,
+            top: 0,
+            bottom: 1,
+        };
+
+        assert_eq!(cell.grow((2, 2)), GridCell {
+            left: -1,
+            right: 2,
+            top: -1,
+            bottom: 2,
+        });
+    }
+
+    #[test]
+    fn test_intersect() {
+        assert_eq!(false, has_intersections(
+            &GridCell { left: 4, right: 8, top: -1, bottom: 1 },
+            &vec![&SymbolCell { location: GridCell { left: 3, right: 3, top: 1, bottom: 1 }, symbol: '*' }],
+        ));
     }
 }
