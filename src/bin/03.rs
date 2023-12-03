@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use regex::{Match, Regex};
 
 advent_of_code::solution!(3);
@@ -20,7 +18,7 @@ struct Span {
 
 trait Gridded {
     fn intersects(&self, point: &(i32, i32)) -> bool;
-    fn neighbours(&self) -> HashSet<(i32, i32)>;
+    fn neighbours(&self) -> Vec<(i32, i32)>;
 }
 
 impl Gridded for Span {
@@ -29,12 +27,12 @@ impl Gridded for Span {
         self.row == row && col >= self.left && col < self.right
     }
 
-    fn neighbours(&self) -> HashSet<(i32, i32)> {
+    fn neighbours(&self) -> Vec<(i32, i32)> {
         let top_edge = (self.left - 1..self.right + 1).map(|i| (self.row - 1, i));
         let bottom_edge = (self.left - 1..self.right + 1).map(|i| (self.row + 1, i));
         let sides = [(self.row, self.left - 1), (self.row, self.right)];
 
-        HashSet::from_iter(top_edge.chain(bottom_edge).chain(sides))
+        Vec::from_iter(top_edge.chain(bottom_edge).chain(sides))
     }
 }
 
