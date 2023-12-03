@@ -1,3 +1,4 @@
+use lazy_static::lazy_static;
 use regex::{Regex};
 advent_of_code::solution!(2);
 
@@ -12,16 +13,19 @@ struct Game {
     draws: Vec<CubeDraw>,
 }
 
-fn parse_draw(draw: &str) -> CubeDraw {
-    let cube_re = Regex::new(r"(?P<count>\d+) (?P<color>red|green|blue)").unwrap();
+lazy_static! {
+    static ref CUBE_RE: Regex = Regex::new(r"(?P<count>\d+) (?P<color>red|green|blue)").unwrap();
+    static ref BASE_RE: Regex = Regex::new(r"^Game (?P<n>\d+):(?P<draws>.*)$").unwrap();
+}
 
+fn parse_draw(draw: &str) -> CubeDraw {
     let mut cubes = CubeDraw {
         red: 0,
         blue: 0,
         green: 0,
     };
 
-    for draw in cube_re.captures_iter(draw) {
+    for draw in CUBE_RE.captures_iter(draw) {
         let count = u32::from_str_radix(&draw["count"], 10).unwrap();
         match &draw["color"] {
             "red" => {
@@ -41,9 +45,7 @@ fn parse_draw(draw: &str) -> CubeDraw {
 }
 
 fn parse_game(line: &str) -> Option<Game> {
-    let base_re = Regex::new(r"^Game (?P<n>\d+):(?P<draws>.*)$").unwrap();
-
-    let base_caps = match base_re.captures(line) {
+    let base_caps = match BASE_RE.captures(line) {
         Some(value) => value,
         None => return None,
     };
