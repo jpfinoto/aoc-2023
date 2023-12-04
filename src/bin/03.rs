@@ -60,18 +60,16 @@ fn parse_row(line: &str, row_number: i32) -> Vec<Cell> {
 
     span_re
         .captures_iter(line)
-        .map(
+        .flat_map(
             |cap| cap.get(1).and_then(|m| match_to_cell(&m, row_number))
         )
-        .flatten()
         .collect()
 }
 
 fn parse(input: &str) -> Vec<Cell> {
     input.split("\n")
         .enumerate()
-        .map(|(i, line)| parse_row(line, i as i32))
-        .flatten()
+        .flat_map(|(i, line)| parse_row(line, i as i32))
         .collect()
 }
 
