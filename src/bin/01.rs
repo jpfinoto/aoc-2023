@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use lazy_static::lazy_static;
+use regex::Regex;
 advent_of_code::solution!(1);
 
 pub fn part_one(input: &str) -> Option<u32> {
@@ -12,51 +15,67 @@ pub fn part_one(input: &str) -> Option<u32> {
     return Some(calibration_factors.iter().sum());
 }
 
-static REPLACEMENTS: &[(&str, u32)] = &[
-    ("one", 1),
-    ("two", 2),
-    ("three", 3),
-    ("four", 4),
-    ("five", 5),
-    ("six", 6),
-    ("seven", 7),
-    ("eight", 8),
-    ("nine", 9),
-    ("1", 1),
-    ("2", 2),
-    ("3", 3),
-    ("4", 4),
-    ("5", 5),
-    ("6", 6),
-    ("7", 7),
-    ("8", 8),
-    ("9", 9),
-];
 
-fn get_numbers(line: String) -> Vec<u32> {
-    let mut entries: Vec<(usize, u32)> = Vec::new();
+lazy_static! {
+    static ref VALUE_MAP: HashMap<&'static str, u32> = HashMap::from([
+        ("one", 1),
+        ("two", 2),
+        ("three", 3),
+        ("four", 4),
+        ("five", 5),
+        ("six", 6),
+        ("seven", 7),
+        ("eight", 8),
+        ("nine", 9),
+        ("1", 1),
+        ("2", 2),
+        ("3", 3),
+        ("4", 4),
+        ("5", 5),
+        ("6", 6),
+        ("7", 7),
+        ("8", 8),
+        ("9", 9),
+    ]);
 
-    for &(from, to) in REPLACEMENTS {
-        let indices: Vec<_> = line.match_indices(from).map(|(i, _)| (i, to)).collect();
-        entries.extend_from_slice(indices.as_slice());
-    }
+    static ref FIND_FIRST_RE: Regex = Regex::new(
+        r"^.*?(one|two|three|four|five|six|seven|eight|nine|1|2|3|4|5|6|7|8|9)"
+    ).unwrap();
 
-    entries.sort_by(|(a_idx, _), (b_idx, _)| a_idx.partial_cmp(b_idx).unwrap());
-
-    return entries.into_iter().map(|(_, x)| x).collect();
+    static ref FIND_LAST_RE: Regex = Regex::new(
+        r".*(one|two|three|four|five|six|seven|eight|nine|1|2|3|4|5|6|7|8|9).*?$"
+    ).unwrap();
 }
 
-pub fn part_two(input: &String) -> Option<u32> {
-    let lines: Vec<_> = input.split("\n").map(String::from).collect();
-    let number_lines: Vec<Vec<u32>> = lines
-        .into_iter()
-        .map(get_numbers)
-        .filter(|v: &Vec<u32>| v.len() >= 1)
-        .collect();
+fn capture_int(line: &str, re: &Regex) -> Option<u32> {
+    re
+        .captures(line)
+        .and_then(|m|
+            m.get(1)
+                .and_then(|s| VALUE_MAP.get(s.as_str()))
+        ).cloned()
+}
 
-    let calibration_factors: Vec<u32> = number_lines.iter().map(|nums| nums.first().unwrap() * 10 + nums.last().unwrap()).collect();
+fn get_numbers(line: &str) -> Option<u32> {
+    let first = capture_int(line, &FIND_FIRST_RE);
+    let last = capture_int(line, &FIND_LAST_RE);
 
-    return Some(calibration_factors.iter().sum());
+    if first.is_none() && last.is_none() {
+        None
+    } else {
+        Some(first.or(last).unwrap() * 10 + last.or(first).unwrap())
+    }
+}
+
+pub fn part_two(input: &str) -> Option<u32> {
+    let lines: Vec<_> = input.split("\n").collect();
+
+    return Some(
+        lines
+            .into_iter()
+            .flat_map(get_numbers)
+            .sum()
+    );
 }
 
 #[cfg(test)]
