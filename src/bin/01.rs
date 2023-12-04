@@ -1,18 +1,27 @@
 use std::collections::HashMap;
 use lazy_static::lazy_static;
 use regex::Regex;
+
 advent_of_code::solution!(1);
 
-pub fn part_one(input: &str) -> Option<u32> {
-    let lines: Vec<&str> = input.split("\n").collect();
-    let number_lines: Vec<Vec<u32>> = lines
-        .iter()
-        .map(|line| line.chars().filter_map(|x| x.to_digit(10)).collect())
-        .filter(|v: &Vec<u32>| v.len() >= 1)
-        .collect();
-    let calibration_factors: Vec<u32> = number_lines.iter().map(|nums| nums.first().unwrap() * 10 + nums.last().unwrap()).collect();
+fn make_number(first: Option<u32>, last: Option<u32>) -> Option<u32> {
+    first.or(last).and_then(|_| Some(first.or(last).unwrap() * 10 + last.or(first).unwrap()))
+}
 
-    return Some(calibration_factors.iter().sum());
+fn get_numbers_simple(line: &str) -> Option<u32> {
+    let first = line.chars().filter_map(|x| x.to_digit(10)).next();
+    let last = line.chars().rev().filter_map(|x| x.to_digit(10)).next();
+
+    make_number(first, last)
+}
+
+pub fn part_one(input: &str) -> Option<u32> {
+    return Some(
+        input
+            .split("\n")
+            .flat_map(get_numbers_simple)
+            .sum()
+    );
 }
 
 
@@ -60,11 +69,7 @@ fn get_numbers(line: &str) -> Option<u32> {
     let first = capture_int(line, &FIND_FIRST_RE);
     let last = capture_int(line, &FIND_LAST_RE);
 
-    if first.is_none() && last.is_none() {
-        None
-    } else {
-        Some(first.or(last).unwrap() * 10 + last.or(first).unwrap())
-    }
+    make_number(first, last)
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
