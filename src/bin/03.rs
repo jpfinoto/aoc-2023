@@ -110,20 +110,12 @@ pub fn part_two(input: &str) -> Option<u32> {
 
     let (symbols, numbers) = get_symbols_and_numbers(&spans);
 
-    let gear_ratios = symbols.iter().filter_map(
-        |&s| {
-            if s.symbol == '*' {
-                let neighbours = find_intersections(&s.cell().grow((2, 2)), &numbers);
-                if neighbours.len() == 2 {
-                    Some(neighbours.first().unwrap().value * neighbours.last().unwrap().value)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        }
-    );
+    let gear_ratios = symbols
+        .iter()
+        .filter(|&s| s.symbol == '*')
+        .map(|&s| find_intersections(&s.cell().grow((2, 2)), &numbers))
+        .filter(|neighbours| neighbours.len() == 2)
+        .map(|neighbours| neighbours.first().unwrap().value * neighbours.last().unwrap().value);
 
     return Some(gear_ratios.sum());
 }
