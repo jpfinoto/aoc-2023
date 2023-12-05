@@ -1,8 +1,7 @@
 use std::cmp::Ordering;
-use std::fmt::{Display, Formatter};
 use std::iter;
 use std::iter::{Chain, Once};
-use std::ops::{Range, RangeInclusive};
+use std::ops::RangeInclusive;
 
 use itertools::Itertools;
 
@@ -24,13 +23,7 @@ struct Mapper {
 
 struct Inputs {
     seeds: Vec<u64>,
-    seed_to_soil: Mapper,
-    soil_to_fertilizer: Mapper,
-    fertilizer_to_water: Mapper,
-    water_to_light: Mapper,
-    light_to_temp: Mapper,
-    temp_to_humidity: Mapper,
-    humidity_to_location: Mapper,
+    mappers: Vec<Mapper>,
 }
 
 impl RangeMap {
@@ -42,24 +35,11 @@ impl RangeMap {
         self.dest + source_id - self.source
     }
 
-    fn input_range(&self) -> Range<u64> {
-        self.source..self.source + self.length
-    }
-
-    fn output_range(&self) -> Range<u64> {
-        self.dest..self.dest + self.length
-    }
-
     fn bounds(&self) -> Chain<Once<u64>, Once<u64>> {
-        iter::once(self.input_range().start).chain(iter::once(self.input_range().end))
+        iter::once(self.source).chain(iter::once(self.source + self.length))
     }
 }
 
-impl Display for RangeMap {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}..{} -> {}..{}", self.input_range().start, self.input_range().end, self.output_range().start, self.output_range().end)
-    }
-}
 
 fn range_finder(source_id: u64) -> Box<dyn Fn(&RangeMap) -> Ordering> {
     Box::new(move |range: &RangeMap| {
@@ -87,7 +67,7 @@ impl Mapper {
 
     fn map_range(&self, range: &RangeInclusive<u64>) -> Vec<RangeInclusive<u64>> {
         // the idea is to map a range of input values into several output ranges
-        // then we'll recursively map these ranges
+        // then we'll recursively break down these ranges
 
         let breakpoints = iter::once(*range.start())
             .chain(self.ranges.iter().flat_map(|m| m.bounds()))
@@ -147,17 +127,11 @@ fn parse(input: &str) -> Inputs {
 
     Inputs {
         seeds: get_big_numbers(parts[1].split("\n").next().unwrap()),
-        seed_to_soil: parse_block(parts[2]),
-        soil_to_fertilizer: parse_block(parts[3]),
-        fertilizer_to_water: parse_block(parts[4]),
-        water_to_light: parse_block(parts[5]),
-        light_to_temp: parse_block(parts[6]),
-        temp_to_humidity: parse_block(parts[7]),
-        humidity_to_location: parse_block(parts[8]),
+        mappers: parts[2..=8].iter().cloned().map(parse_block).collect(),
     }
 }
 
-fn map_forward(input: u64, mappers: &Vec<&Mapper>) -> u64 {
+fn map_forward(input: u64, mappers: &Vec<Mapper>) -> u64 {
     mappers.iter().fold(input, |prev, mapper| {
         let res = mapper.map_value(prev);
         // println!("Map {prev} into {res} using {:?}", mapper);
@@ -165,7 +139,7 @@ fn map_forward(input: u64, mappers: &Vec<&Mapper>) -> u64 {
     })
 }
 
-fn map_range(input: RangeInclusive<u64>, mappers: &Vec<&Mapper>) -> Vec<RangeInclusive<u64>> {
+fn map_range(input: RangeInclusive<u64>, mappers: &Vec<Mapper>) -> Vec<RangeInclusive<u64>> {
     mappers.iter().fold(vec![input], |prev, mapper| {
         let res = prev.iter().flat_map(|r| mapper.map_range(r)).collect_vec();
         // println!("Map {:?} into {:?} using {:?}", prev, res, mapper);
@@ -175,46 +149,25 @@ fn map_range(input: RangeInclusive<u64>, mappers: &Vec<&Mapper>) -> Vec<RangeInc
 
 pub fn part_one(input: &str) -> Option<u64> {
     let inputs = parse(input);
-    let mappers = vec![
-        &inputs.seed_to_soil,
-        &inputs.soil_to_fertilizer,
-        &inputs.fertilizer_to_water,
-        &inputs.water_to_light,
-        &inputs.light_to_temp,
-        &inputs.temp_to_humidity,
-        &inputs.humidity_to_location,
-    ];
 
-    Some(inputs.seeds.iter().map(|&seed| {
-        // println!("\n\nStart converting {seed}");
-        map_forward(seed, &mappers)
-    }).min().unwrap())
+    inputs
+        .seeds
+        .iter()
+        .map(|&seed| map_forward(seed, &inputs.mappers))
+        .min()
 }
 
 pub fn part_two(input: &str) -> Option<u64> {
     let inputs = parse(input);
-    let mappers = vec![
-        &inputs.seed_to_soil,
-        &inputs.soil_to_fertilizer,
-        &inputs.fertilizer_to_water,
-        &inputs.water_to_light,
-        &inputs.light_to_temp,
-        &inputs.temp_to_humidity,
-        &inputs.humidity_to_location,
-    ];
 
-
-    Some(
-        inputs
-            .seeds
-            .chunks_exact(2)
-            .map(|range| range[0]..=range[0] + range[1] - 1)
-            .map(|range| map_range(range, &mappers))
-            .flatten()
-            .map(|range| *range.start())
-            .min()
-            .unwrap()
-    )
+    inputs
+        .seeds
+        .chunks_exact(2)
+        .map(|range| range[0]..=range[0] + range[1] - 1)
+        .map(|range| map_range(range, &inputs.mappers))
+        .flatten()
+        .map(|range| *range.start())
+        .min()
 }
 
 #[cfg(test)]
