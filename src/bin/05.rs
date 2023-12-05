@@ -3,7 +3,7 @@ use std::iter;
 use std::iter::{Chain, Once};
 use std::ops::RangeInclusive;
 
-use itertools::Itertools;
+use itertools::{Itertools, MinMaxResult};
 
 use advent_of_code::utils::parsing::get_big_numbers;
 
@@ -37,6 +37,14 @@ impl RangeMap {
 
     fn bounds(&self) -> Chain<Once<u64>, Once<u64>> {
         iter::once(self.source).chain(iter::once(self.source + self.length))
+    }
+
+    fn inverse(&self) -> RangeMap {
+        RangeMap {
+            source: self.dest,
+            dest: self.source,
+            length: self.length,
+        }
     }
 }
 
@@ -89,6 +97,16 @@ impl Mapper {
 
                 mapped_start..=mapped_end
             }).collect_vec()
+    }
+
+    #[allow(dead_code)]
+    fn inverse(&self) -> Mapper {
+        let mut ranges = self.ranges.iter().map(RangeMap::inverse).rev().collect_vec();
+        ranges.sort();
+
+        Mapper {
+            ranges
+        }
     }
 }
 
@@ -147,6 +165,47 @@ fn map_range(input: RangeInclusive<u64>, mappers: &Vec<Mapper>) -> Vec<RangeIncl
     })
 }
 
+#[allow(dead_code)]
+fn compile(mappers: &Vec<Mapper>) -> Mapper {
+    // this is really bad and makes everything slower
+
+    let inverse_mappers = mappers.iter().map(Mapper::inverse).rev().collect_vec();
+
+    let (min, max) = match mappers.last().unwrap().ranges.iter().flat_map(|m| m.bounds()).minmax() {
+        MinMaxResult::NoElements => panic!(),
+        MinMaxResult::OneElement(min) => (min, min),
+        MinMaxResult::MinMax(min, max) => (min, max)
+    };
+
+    let final_ranges = map_range(min..=max, mappers);
+    let initial_ranges = final_ranges
+        .into_iter()
+        .flat_map(|r| map_range(r, &inverse_mappers))
+        .collect_vec();
+
+    let ranges = initial_ranges
+        .into_iter()
+        .map(|r| {
+            let final_ranges = map_range(r.clone(), mappers);
+            assert_eq!(1, final_ranges.len());
+            let final_range = final_ranges.first().unwrap();
+
+            RangeMap {
+                source: *r.start(),
+                dest: *final_range.start(),
+                length: *r.end() - *r.start(),
+            }
+        })
+        .filter(|m| m.source != m.dest)
+        .collect_vec();
+
+    println!("compiled: {:?}", ranges);
+
+    Mapper {
+        ranges
+    }
+}
+
 pub fn part_one(input: &str) -> Option<u64> {
     let inputs = parse(input);
 
@@ -184,5 +243,12 @@ mod tests {
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
         assert_eq!(result, Some(46));
+    }
+
+    #[test]
+    fn test_compile() {
+        let inputs = parse(&advent_of_code::template::read_file("examples", DAY));
+        let mappers = compile(&inputs.mappers);
+        println!("{:?}", mappers)
     }
 }
