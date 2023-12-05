@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
 use regex::Regex;
+use advent_of_code::utils::parsing;
 
 advent_of_code::solution!(4);
 
@@ -14,15 +15,11 @@ lazy_static! {
     ).unwrap();
 }
 
-fn get_numbers(s: &str) -> Vec<u32> {
-    s.split(" ").flat_map(|s| u32::from_str_radix(s, 10)).collect()
-}
-
 fn parse_card(line: &str) -> Option<Card> {
     CARD_RE.captures(line).and_then(
         |matches| Some(Card {
-            winning_numbers: get_numbers(&matches["winning"]),
-            player_numbers: get_numbers(&matches["player"]),
+            winning_numbers: parsing::get_numbers(&matches["winning"]),
+            player_numbers: parsing::get_numbers(&matches["player"]),
         })
     )
 }
