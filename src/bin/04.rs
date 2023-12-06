@@ -1,6 +1,7 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 use advent_of_code::utils::parsing;
+use rayon::prelude::*;
 
 advent_of_code::solution!(4);
 
@@ -38,28 +39,26 @@ fn get_points(card: &Card) -> usize {
     }
 }
 
-fn get_next_pending_card(pending: &Vec<usize>) -> Option<(usize, &usize)> {
-    pending
-        .iter()
-        .enumerate()
-        .filter(|&(_, count)| count > &0usize)
-        .next()
-}
-
 pub fn part_one(input: &str) -> Option<u32> {
-    let cards: Vec<Card> = input.split("\n").flat_map(parse_card).collect();
-
-    Some(cards.iter().map(get_points).sum::<usize>() as u32)
+    Some(
+        input
+            .split("\n")
+            .par_bridge()
+            .flat_map(|l| parse_card(l).and_then(|c| Some(get_points(&c))))
+            .sum::<usize>() as u32
+    )
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
+    // TODO: make this parallelized
+
     let cards: Vec<Card> = input.split("\n").flat_map(parse_card).collect();
     let points: Vec<usize> = cards.iter().map(get_matches).collect();
     let mut pending_cards: Vec<usize> = vec![1; cards.len()];
     let mut total_cards = pending_cards.len();
 
-    while let Some((card_num, &count)) = get_next_pending_card(&pending_cards) {
-        pending_cards[card_num] = 0;
+    for card_num in 0..cards.len() {
+        let count = pending_cards[card_num];
         let card_points = points[card_num];
         for c in card_num + 1..=card_num + card_points {
             total_cards += count;
