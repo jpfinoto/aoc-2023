@@ -90,9 +90,7 @@ pub fn find_neighbours<'a, I, G, C>(item: &I, grid: &'a Vec<&G>) -> Vec<&'a G>
         .collect()
 }
 
-pub fn find_intersections<'a, G>(item: &GridCell, grid: &'a Vec<&G>) -> Vec<&'a G>
-    where G: Cellular
-{
+pub fn find_intersections<'a, G: Cellular>(item: &GridCell, grid: &'a Vec<&G>) -> Vec<&'a G> {
     grid
         .into_iter()
         .filter(|&&s| s.cell().intersects(item))

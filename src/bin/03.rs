@@ -1,3 +1,4 @@
+use lazy_static::lazy_static;
 use regex::{Match, Regex};
 
 use advent_of_code::utils::grid::{Cellular, find_intersections, GridCell, Growable, has_intersections};
@@ -55,10 +56,12 @@ fn match_to_cell(m: &Match, row_number: i32) -> Option<Cell> {
     }
 }
 
-fn parse_row(line: &str, row_number: i32) -> Vec<Cell> {
-    let span_re = Regex::new(r"(\d+|[^.])").unwrap();
+lazy_static! {
+    static ref SPAN_RE: Regex = Regex::new(r"(\d+|[^.])").unwrap();
+}
 
-    span_re
+fn parse_row(line: &str, row_number: i32) -> Vec<Cell> {
+    SPAN_RE
         .captures_iter(line)
         .flat_map(
             |cap| cap.get(1).and_then(|m| match_to_cell(&m, row_number))
