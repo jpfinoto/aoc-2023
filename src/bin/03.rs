@@ -1,4 +1,5 @@
 use lazy_static::lazy_static;
+use rayon::prelude::*;
 use regex::{Match, Regex};
 
 use advent_of_code::utils::grid::{Cellular, find_intersections, GridCell, Growable, has_intersections};
@@ -95,8 +96,8 @@ pub fn part_one(input: &str) -> Option<u32> {
 
     let (symbols, numbers) = get_symbols_and_numbers(&spans);
 
-    let valid_numbers: Vec<_> = numbers.into_iter().filter_map(
-        |s| if has_intersections(&s.cell().grow((2, 2)), &symbols) {
+    let valid_numbers: Vec<_> = numbers.par_iter().filter_map(
+        |&s| if has_intersections(&s.cell().grow((2, 2)), &symbols) {
             Some(s.value)
         } else {
             None
@@ -112,7 +113,7 @@ pub fn part_two(input: &str) -> Option<u32> {
     let (symbols, numbers) = get_symbols_and_numbers(&spans);
 
     let gear_ratios = symbols
-        .iter()
+        .par_iter()
         .filter(|&s| s.symbol == '*')
         .map(|&s| find_intersections(&s.cell().grow((2, 2)), &numbers))
         .filter(|neighbours| neighbours.len() == 2)
