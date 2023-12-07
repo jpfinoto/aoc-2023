@@ -24,22 +24,6 @@ enum Card {
     Joker,
 }
 
-static JOKER_TRY_ORDER: [Card; 13] = [
-    Card::A,
-    Card::K,
-    Card::Q,
-    Card::J,
-    Card::T,
-    Card::N9,
-    Card::N8,
-    Card::N7,
-    Card::N6,
-    Card::N5,
-    Card::N4,
-    Card::N3,
-    Card::N2,
-];
-
 fn parse_card(card: &str) -> Result<Card, ()> {
     match card {
         "A" => Ok(Card::A),
@@ -83,73 +67,59 @@ fn get_hand_type(cards: &[Card; 5]) -> HandType {
         *cards_by_type.entry(card).or_insert(0) += 1;
     }
 
-    let mut ordered = cards_by_type.values().sorted().rev();
-    let most = *ordered.next().unwrap();
-    let second_most = ordered.cloned().next();
+    let ordered = cards_by_type.values().sorted().rev().cloned().collect_vec();
 
-    if most == 5 {
-        HandType::FiveOfAKind
-    } else if most == 4 {
-        HandType::FourOfAKind
-    } else if most == 3 && second_most.unwrap() == 2 {
-        HandType::FullHouse
-    } else if most == 3 {
-        HandType::ThreeOfAKind
-    } else if most == 2 && second_most.unwrap() == 2 {
-        HandType::TwoPair
-    } else if most == 2 {
-        HandType::Pair
-    } else {
-        HandType::High
+    match ordered.as_slice() {
+        [5] => HandType::FiveOfAKind,
+        [4, 1] => HandType::FourOfAKind,
+        [3, 2] => HandType::FullHouse,
+        [3, 1, 1] => HandType::ThreeOfAKind,
+        [2, 2, 1] => HandType::TwoPair,
+        [2, 1, 1, 1] => HandType::Pair,
+        [1, 1, 1, 1, 1] => HandType::High,
+        _ => panic!(),
     }
 }
 
-fn replace_cards(cards: &[Card; 5], replacements: &Vec<&Card>, replace_indices: &Vec<usize>) -> [Card; 5] {
-    cards
-        .iter()
-        .enumerate()
-        .flat_map(|(i, card)| {
-            replace_indices.iter().position(|&j| j == i).and_then(|k| Some(replacements[k]))
-                .or(Some(card))
-        })
-        .cloned()
-        .collect_vec()
-        .try_into()
-        .unwrap()
-}
 
 impl Hand {
     fn get_type(&self) -> HandType {
-        self.possible_raw_hands()
-            .and_then(|types| {
-                Some(types.iter().map(get_hand_type).sorted().next().unwrap())
-            })
-            .or_else(|| Some(get_hand_type(&self.cards)))
-            .unwrap()
-    }
-
-    fn possible_raw_hands(&self) -> Option<Vec<[Card; 5]>> {
-        let joker_indices =
+        let num_jokers =
             self.cards
                 .into_iter()
-                .enumerate()
-                .filter(|&(_, c)| c == Card::Joker)
-                .map(|(i, _)| i)
-                .collect_vec();
+                .filter(|&c| c == Card::Joker)
+                .count();
 
-        let num_jokers = joker_indices.len();
+        let base_hand = get_hand_type(&self.cards);
 
-        if num_jokers == 0 {
-            return None;
+        match (base_hand, num_jokers) {
+            (HandType::FiveOfAKind, _) => HandType::FiveOfAKind,
+
+            (HandType::FourOfAKind, 4) => HandType::FiveOfAKind,
+            (HandType::FourOfAKind, 1) => HandType::FullHouse,
+            (HandType::FourOfAKind, 0) => HandType::FourOfAKind,
+
+            (HandType::FullHouse, 3) => HandType::FiveOfAKind,
+            (HandType::FullHouse, 2) => HandType::FiveOfAKind,
+            (HandType::FullHouse, 0) => HandType::FullHouse,
+
+            (HandType::TwoPair, 2) => HandType::FourOfAKind,
+            (HandType::TwoPair, 1) => HandType::ThreeOfAKind,
+            (HandType::TwoPair, 0) => HandType::TwoPair,
+
+            (HandType::ThreeOfAKind, 3) => HandType::FourOfAKind,
+            (HandType::ThreeOfAKind, 1) => HandType::FourOfAKind,
+            (HandType::ThreeOfAKind, 0) => HandType::FourOfAKind,
+
+            (HandType::Pair, 2) => HandType::Pair,
+            (HandType::Pair, 1) => HandType::ThreeOfAKind,
+            (HandType::Pair, 0) => HandType::Pair,
+
+            (HandType::High, 1) => HandType::Pair,
+            (HandType::High, 0) => HandType::High,
+
+            (_, _) => panic!("not possible"),
         }
-
-        let generator = JOKER_TRY_ORDER
-            .iter()
-            .combinations_with_replacement(num_jokers)
-            .map(|replacements| replace_cards(&self.cards, &replacements, &joker_indices))
-            .collect_vec();
-
-        Some(generator)
     }
 
     fn parse(line: &str) -> Result<Hand, ()> {
