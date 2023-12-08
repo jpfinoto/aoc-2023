@@ -1,8 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::Regex;
+use rayon::prelude::*;
 
 advent_of_code::solution!(8);
 
@@ -78,21 +79,15 @@ fn id_ends_with(id: u32, c: char) -> bool {
     (id & 0xff) == char_idx(c)
 }
 
-fn get_cycle(moves: &Vec<Direction>, map: &HashMap<u32, Node>, node: &Node, target_cond: fn(&Node) -> bool) -> Vec<usize> {
+fn get_cycle(moves: &Vec<Direction>, map: &HashMap<u32, Node>, node: &Node, target_cond: fn(&Node) -> bool) -> u64 {
     let mut current_node = node;
     let total_moves = moves.len();
-    let mut checkpoints: HashSet<(usize, u32)> = HashSet::new();
-    let mut points: Vec<usize> = vec![];
+    let mut last_cycle = 0u64;
 
     for (i, dir) in moves.iter().cycle().enumerate() {
-        if target_cond(current_node) {
-            let p = (i % total_moves, node.id);
-            if checkpoints.contains(&p) {
-                break;
-            }
-
-            checkpoints.insert(p);
-            points.push(i);
+        if target_cond(current_node) && i % total_moves == 0 {
+            last_cycle = i as u64;
+            break;
         }
 
         match dir {
@@ -101,7 +96,7 @@ fn get_cycle(moves: &Vec<Direction>, map: &HashMap<u32, Node>, node: &Node, targ
         }
     }
 
-    points
+    last_cycle
 }
 
 fn gcd(mut a: u64, mut b: u64) -> u64 {
@@ -142,19 +137,19 @@ pub fn part_two(input: &str) -> Option<u64> {
     let (moves, map) = parse(input);
 
     let starting_nodes = map.values().filter(|&v| id_ends_with(v.id, 'A')).collect_vec();
-    let cycles =
+    let cycles: Vec<u64> =
         starting_nodes
-            .iter()
+            .par_iter()
             .map(|node|
-                *get_cycle(&moves, &map, node, |node| id_ends_with(node.id, 'Z'))
-                    .iter()
-                    .last()
-                    .unwrap() as u64
-            )
-            .reduce(lcm)
-            .unwrap();
+                get_cycle(&moves, &map, node, |node| id_ends_with(node.id, 'Z'))
+            ).collect();
 
-    Some(cycles)
+    Some(
+        cycles
+            .into_iter()
+            .reduce(lcm)
+            .unwrap()
+    )
 }
 
 #[cfg(test)]
