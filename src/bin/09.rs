@@ -34,7 +34,7 @@ fn extrapolate(coeff: &Vec<i64>, n: i64) -> i64 {
     coeff
         .iter()
         .enumerate()
-        .map(|(i, c)| binomial(n.abs(), i as i64) * c)
+        .map(|(i, c)| binomial(n, i as i64) * c)
         .sum()
 }
 
