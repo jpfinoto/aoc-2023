@@ -1,6 +1,9 @@
 use itertools::Itertools;
 use num::integer::binomial;
-use advent_of_code::utils::parsing::{get_big_signed_numbers};
+use rayon::prelude::*;
+
+use advent_of_code::utils::parsing::get_big_signed_numbers;
+
 advent_of_code::solution!(9);
 
 fn get_differences(numbers: &Vec<i64>) -> Vec<i64> {
@@ -49,7 +52,7 @@ pub fn part_one(input: &str) -> Option<i64> {
 
     Some(
         readings
-            .iter()
+            .par_iter()
             .map(|r| extrapolate(&get_coefficients(r), r.len() as i64))
             .sum()
     )
@@ -60,7 +63,7 @@ pub fn part_two(input: &str) -> Option<i64> {
 
     Some(
         readings
-            .iter()
+            .par_iter()
             .map(get_coefficients)
             .map(|coeff| coeff.into_iter().rev().reduce(|acc, c| c - acc))
             .flatten()
