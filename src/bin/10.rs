@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
-use std::ops::{Add, Range};
+use std::ops::Range;
 
 use itertools::Itertools;
+
+use advent_of_code::utils::geometry::XY;
 
 advent_of_code::solution!(10);
 
@@ -17,23 +18,6 @@ enum Direction {
     UpDown,
     LeftRight,
     Corner,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-struct XY(i32, i32);
-
-impl XY {
-    fn as_tuple(&self) -> (i32, i32) {
-        (self.0, self.1)
-    }
-}
-
-impl Add for XY {
-    type Output = XY;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        XY(self.0 + rhs.0, self.1 + rhs.1)
-    }
 }
 
 const UP: XY = XY(0, -1);
@@ -84,7 +68,7 @@ impl<T> DenseGrid<T> {
         if x < 0 || y < 0 {
             self.filler.as_ref()
         } else {
-            let index = y * (self.width as i32) + x;
+            let index = y * (self.width as i64) + x;
             self.items.get(index as usize).or(self.filler.as_ref())
         }
     }
@@ -101,7 +85,7 @@ impl<T> DenseGrid<T> {
     }
 
     fn index_to_xy(&self, idx: usize) -> XY {
-        XY((idx % self.width) as i32, (idx / self.width) as i32)
+        XY((idx % self.width) as i64, (idx / self.width) as i64)
     }
 
     fn height(&self) -> usize {
@@ -188,9 +172,9 @@ fn get_odd(boundary: &HashMap<XY, Direction>, row_first: bool, x_range: Range<i3
 
         for second in second_range.clone() {
             let p = if row_first {
-                XY(second, first)
+                XY(second as i64, first as i64)
             } else {
-                XY(first, second)
+                XY(first as i64, second as i64)
             };
 
             if let Some(boundary_dir) = boundary.get(&p) {
@@ -230,7 +214,7 @@ fn get_odd(boundary: &HashMap<XY, Direction>, row_first: bool, x_range: Range<i3
 fn print_grid(boundary: &HashMap<XY, Direction>, inner: &HashSet<XY>, w: i32, h: i32) {
     for y in 0..h {
         for x in 0..w {
-            let p = XY(x, y);
+            let p = XY(x as i64, y as i64);
             print!("{}", match (boundary.contains_key(&p), inner.contains(&p)) {
                 (true, false) => '*',
                 (false, true) => 'I',
@@ -251,6 +235,7 @@ pub fn part_one(input: &str) -> Option<u32> {
     Some(cycle_length / 2)
 }
 
+#[allow(unused)]
 pub fn part_two(input: &str) -> Option<u32> {
     let grid = DenseGrid::parse(input, parse_pipe, Some(Pipe::Empty));
     let Some((_, start_xy)) = grid.find(|pipe| *pipe == Pipe::Start) else { panic!() };
@@ -281,7 +266,7 @@ pub fn part_two(input: &str) -> Option<u32> {
 
     let total = row_wise_candidates.iter().filter(|p| col_wise_candidates.contains(p)).count();
 
-    Some(total as u32)
+    None
 }
 
 #[cfg(test)]
