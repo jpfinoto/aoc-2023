@@ -271,7 +271,23 @@ pub fn part_two(input: &str) -> Option<u32> {
 
 #[cfg(test)]
 mod tests {
+    use sdl2::pixels::Color;
+
+    use advent_of_code::utils::visuals::grid::{GridOptions, GridRenderer, plot_grid, WindowOptions};
+
     use super::*;
+
+    struct PipeRenderer {}
+
+    impl GridRenderer<Pipe> for PipeRenderer {
+        fn render(&self, tile: &Pipe) -> Color {
+            match tile {
+                Pipe::TwoWay(_, _) => Color::WHITE,
+                Pipe::Empty => Color::BLACK,
+                Pipe::Start => Color::RED,
+            }
+        }
+    }
 
     #[test]
     fn test_part_one() {
@@ -283,5 +299,23 @@ mod tests {
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
         assert_eq!(result, Some(10));
+    }
+
+    #[test]
+    fn plot() {
+        let input = advent_of_code::template::read_file("inputs", DAY);
+        let grid = DenseGrid::parse(&input, parse_pipe, Some(Pipe::Empty));
+        let Some((_, start_xy)) = grid.find(|pipe| *pipe == Pipe::Start) else { panic!() };
+        let (_, boundary) = find_cycle(start_xy, &grid);
+
+        plot_grid(&GridOptions {
+            window: WindowOptions {
+                width: 800,
+                height: 800,
+                title: "Pipe Dream",
+                background_color: Color::RGB(0, 0, 0),
+            },
+            grid_scale: 0.0,
+        }, &PipeRenderer {}, vec![].as_slice());
     }
 }
