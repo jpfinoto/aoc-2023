@@ -54,7 +54,7 @@ pub fn part_one(input: &str) -> Option<i64> {
         readings
             .par_iter()
             .map(|r| extrapolate(&get_coefficients(r), r.len() as i64))
-            .sum()
+            .sum(),
     )
 }
 
@@ -67,7 +67,7 @@ pub fn part_two(input: &str) -> Option<i64> {
             .map(get_coefficients)
             .map(|coeff| coeff.into_iter().rev().reduce(|acc, c| c - acc))
             .flatten()
-            .sum()
+            .sum(),
     )
 }
 

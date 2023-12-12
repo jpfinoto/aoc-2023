@@ -50,7 +50,7 @@ pub fn part_one(input: &str) -> Option<u64> {
             .iter()
             .map(|&(total_time, total_dist)| hold_time_range(total_time, total_dist))
             .map(|(min_time, max_time)| max_time - min_time + 1)
-            .product()
+            .product(),
     )
 }
 

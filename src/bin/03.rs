@@ -2,7 +2,9 @@ use lazy_static::lazy_static;
 use rayon::prelude::*;
 use regex::{Match, Regex};
 
-use advent_of_code::utils::grid::{Cellular, find_intersections, GridCell, Growable, has_intersections};
+use advent_of_code::utils::grid::{
+    find_intersections, has_intersections, Cellular, GridCell, Growable,
+};
 
 advent_of_code::solution!(3);
 
@@ -35,7 +37,6 @@ impl Cellular for NumberCell {
     }
 }
 
-
 fn match_to_cell(m: &Match, row_number: i32) -> Option<Cell> {
     if m.as_str().trim().len() == 0 {
         return None;
@@ -64,29 +65,34 @@ lazy_static! {
 fn parse_row(line: &str, row_number: i32) -> Vec<Cell> {
     SPAN_RE
         .captures_iter(line)
-        .flat_map(
-            |cap| cap.get(1).and_then(|m| match_to_cell(&m, row_number))
-        )
+        .flat_map(|cap| cap.get(1).and_then(|m| match_to_cell(&m, row_number)))
         .collect()
 }
 
 fn parse(input: &str) -> Vec<Cell> {
-    input.split("\n")
+    input
+        .split("\n")
         .enumerate()
         .flat_map(|(i, line)| parse_row(line, i as i32))
         .collect()
 }
 
 fn get_symbols_and_numbers(spans: &Vec<Cell>) -> (Vec<&SymbolCell>, Vec<&NumberCell>) {
-    let symbols: Vec<_> = spans.iter().filter_map(|cell| match cell {
-        Cell::Number(_) => None,
-        Cell::Symbol(symbol) => Some(symbol),
-    }).collect();
+    let symbols: Vec<_> = spans
+        .iter()
+        .filter_map(|cell| match cell {
+            Cell::Number(_) => None,
+            Cell::Symbol(symbol) => Some(symbol),
+        })
+        .collect();
 
-    let numbers: Vec<_> = spans.iter().filter_map(|cell| match cell {
-        Cell::Number(number) => Some(number),
-        Cell::Symbol(_) => None,
-    }).collect();
+    let numbers: Vec<_> = spans
+        .iter()
+        .filter_map(|cell| match cell {
+            Cell::Number(number) => Some(number),
+            Cell::Symbol(_) => None,
+        })
+        .collect();
 
     (symbols, numbers)
 }
@@ -96,13 +102,16 @@ pub fn part_one(input: &str) -> Option<u32> {
 
     let (symbols, numbers) = get_symbols_and_numbers(&spans);
 
-    let valid_numbers: Vec<_> = numbers.par_iter().filter_map(
-        |&s| if has_intersections(&s.cell().grow((2, 2)), &symbols) {
-            Some(s.value)
-        } else {
-            None
-        }
-    ).collect();
+    let valid_numbers: Vec<_> = numbers
+        .par_iter()
+        .filter_map(|&s| {
+            if has_intersections(&s.cell().grow((2, 2)), &symbols) {
+                Some(s.value)
+            } else {
+                None
+            }
+        })
+        .collect();
 
     Some(valid_numbers.iter().sum())
 }
@@ -147,19 +156,38 @@ mod tests {
             bottom: 1,
         };
 
-        assert_eq!(cell.grow((2, 2)), GridCell {
-            left: -1,
-            right: 2,
-            top: -1,
-            bottom: 2,
-        });
+        assert_eq!(
+            cell.grow((2, 2)),
+            GridCell {
+                left: -1,
+                right: 2,
+                top: -1,
+                bottom: 2,
+            }
+        );
     }
 
     #[test]
     fn test_intersect() {
-        assert_eq!(false, has_intersections(
-            &GridCell { left: 4, right: 8, top: -1, bottom: 1 },
-            &vec![&SymbolCell { location: GridCell { left: 3, right: 3, top: 1, bottom: 1 }, symbol: '*' }],
-        ));
+        assert_eq!(
+            false,
+            has_intersections(
+                &GridCell {
+                    left: 4,
+                    right: 8,
+                    top: -1,
+                    bottom: 1
+                },
+                &vec![&SymbolCell {
+                    location: GridCell {
+                        left: 3,
+                        right: 3,
+                        top: 1,
+                        bottom: 1
+                    },
+                    symbol: '*'
+                }],
+            )
+        );
     }
 }

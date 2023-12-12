@@ -32,7 +32,10 @@ pub struct GridCell {
 
 impl GridCell {
     fn intersects(&self, other: &GridCell) -> bool {
-        self.left <= other.right && self.right >= other.left && self.top <= other.bottom && self.bottom >= other.top
+        self.left <= other.right
+            && self.right >= other.left
+            && self.top <= other.bottom
+            && self.bottom >= other.top
     }
 }
 
@@ -43,10 +46,14 @@ impl WithNeighbours<Point2Di> for GridCell {
         let left_edge = (self.top..=self.bottom).map(|i| (self.left - 1, i));
         let right_edge = (self.top..=self.bottom).map(|i| (self.right + 1, i));
 
-        Vec::from_iter(top_edge.chain(bottom_edge).chain(left_edge).chain(right_edge))
+        Vec::from_iter(
+            top_edge
+                .chain(bottom_edge)
+                .chain(left_edge)
+                .chain(right_edge),
+        )
     }
 }
-
 
 impl BoundedArea<Point2Di> for GridCell {
     fn contains(&self, &(row, col): &Point2Di) -> bool {
@@ -56,7 +63,9 @@ impl BoundedArea<Point2Di> for GridCell {
 
 impl DiscreetInterior<Point2Di> for GridCell {
     fn interior(&self) -> Vec<Point2Di> {
-        (self.left..=self.right).cartesian_product(self.top..=self.bottom).collect()
+        (self.left..=self.right)
+            .cartesian_product(self.top..=self.bottom)
+            .collect()
     }
 }
 
@@ -74,32 +83,29 @@ impl Growable<Point2Di> for GridCell {
     }
 }
 
-
 pub fn find_neighbours<'a, I, G, C>(item: &I, grid: &'a Vec<&G>) -> Vec<&'a G>
-    where
-        I: WithNeighbours<C>,
-        G: BoundedArea<C>,
+where
+    I: WithNeighbours<C>,
+    G: BoundedArea<C>,
 {
     let neighbour_points = item.neighbours();
 
-    grid
-        .into_iter()
-        .filter(
-            |&&s| neighbour_points.iter().any(|p| s.contains(p)))
+    grid.into_iter()
+        .filter(|&&s| neighbour_points.iter().any(|p| s.contains(p)))
         .cloned()
         .collect()
 }
 
 pub fn find_intersections<'a, G: Cellular>(item: &GridCell, grid: &'a Vec<&G>) -> Vec<&'a G> {
-    grid
-        .into_iter()
+    grid.into_iter()
         .filter(|&&s| s.cell().intersects(item))
         .cloned()
         .collect()
 }
 
 pub fn has_intersections<'a, G>(item: &GridCell, grid: &'a Vec<&G>) -> bool
-    where G: Cellular
+where
+    G: Cellular,
 {
     grid.iter().any(|s| s.cell().intersects(item))
 }

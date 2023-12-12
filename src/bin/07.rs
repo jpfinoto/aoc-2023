@@ -5,7 +5,6 @@ use itertools::Itertools;
 
 advent_of_code::solution!(7);
 
-
 #[derive(Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone, Debug)]
 enum Card {
     A,
@@ -81,14 +80,9 @@ fn get_hand_type(cards: &[Card; 5]) -> HandType {
     }
 }
 
-
 impl Hand {
     fn get_type(&self) -> HandType {
-        let num_jokers =
-            self.cards
-                .into_iter()
-                .filter(|&c| c == Card::Joker)
-                .count();
+        let num_jokers = self.cards.into_iter().filter(|&c| c == Card::Joker).count();
 
         let base_hand = get_hand_type(&self.cards);
 
@@ -136,20 +130,24 @@ impl Hand {
             .try_into()
             .unwrap();
 
-        Ok(
-            Hand {
-                cards,
-                bid: u32::from_str_radix(parts[1], 10).unwrap(),
-            }
-        )
+        Ok(Hand {
+            cards,
+            bid: u32::from_str_radix(parts[1], 10).unwrap(),
+        })
     }
 
     fn change_jokers(&self) -> Hand {
         Hand {
-            cards: self.cards.iter().map(|c| match c {
-                Card::J => Card::Joker,
-                other => *other,
-            }).collect_vec().try_into().unwrap(),
+            cards: self
+                .cards
+                .iter()
+                .map(|c| match c {
+                    Card::J => Card::Joker,
+                    other => *other,
+                })
+                .collect_vec()
+                .try_into()
+                .unwrap(),
             bid: self.bid,
         }
     }
@@ -166,7 +164,7 @@ fn sort_hands(
     match hand1_type.cmp(hand2_type) {
         Ordering::Less => Ordering::Less,
         Ordering::Greater => Ordering::Greater,
-        Ordering::Equal => hand1.compare_high_card(hand2)
+        Ordering::Equal => hand1.compare_high_card(hand2),
     }
 }
 
@@ -181,9 +179,7 @@ fn get_sorted_hands(hands: &Vec<Hand>) -> Vec<(usize, (&Hand, HandType))> {
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
-    let hands = input.split("\n")
-        .flat_map(Hand::parse)
-        .collect_vec();
+    let hands = input.split("\n").flat_map(Hand::parse).collect_vec();
 
     let sorted_hands = get_sorted_hands(&hands);
 
@@ -195,12 +191,13 @@ pub fn part_one(input: &str) -> Option<u32> {
         sorted_hands
             .iter()
             .map(|(rank, (hand, _))| (*rank as u32 + 1) * hand.bid)
-            .sum()
+            .sum(),
     )
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    let hands = input.split("\n")
+    let hands = input
+        .split("\n")
         .flat_map(|s| Hand::parse(s).and_then(|hand| Ok(hand.change_jokers())))
         .collect_vec();
 
@@ -210,7 +207,7 @@ pub fn part_two(input: &str) -> Option<u32> {
         sorted_hands
             .iter()
             .map(|(rank, (hand, _))| (*rank as u32 + 1) * hand.bid)
-            .sum()
+            .sum(),
     )
 }
 

@@ -42,7 +42,7 @@ fn parse_pipe(c: char) -> Pipe {
         'F' => Pipe::TwoWay(DOWN, RIGHT),
         '.' => Pipe::Empty,
         'S' => Pipe::Start,
-        _ => panic!("Invalid char {c}")
+        _ => panic!("Invalid char {c}"),
     }
 }
 
@@ -74,14 +74,11 @@ impl<T> DenseGrid<T> {
     }
 
     fn find(&self, predicate: fn(item: &T) -> bool) -> Option<(&T, XY)> {
-        self
-            .items
+        self.items
             .iter()
             .enumerate()
             .find(|(_, item)| predicate(*item))
-            .and_then(|(i, item)| {
-                Some((item, self.index_to_xy(i)))
-            })
+            .and_then(|(i, item)| Some((item, self.index_to_xy(i))))
     }
 
     fn index_to_xy(&self, idx: usize) -> XY {
@@ -93,9 +90,8 @@ impl<T> DenseGrid<T> {
     }
 
     #[allow(dead_code)]
-    fn rows_iter(&self) -> impl Iterator<Item=&[T]> {
-        (0..self.height())
-            .map(move |y| &self.items[y * self.width..(y + 1) * self.width])
+    fn rows_iter(&self) -> impl Iterator<Item = &[T]> {
+        (0..self.height()).map(move |y| &self.items[y * self.width..(y + 1) * self.width])
     }
 }
 
@@ -150,7 +146,11 @@ fn find_cycle(start_xy: XY, grid: &DenseGrid<Pipe>) -> (u32, HashMap<XY, Directi
     panic!("Couldn't find route");
 }
 
-fn get_odd(boundary: &HashMap<XY, Direction>, x_range: Range<i32>, y_range: Range<i32>) -> HashSet<XY> {
+fn get_odd(
+    boundary: &HashMap<XY, Direction>,
+    x_range: Range<i32>,
+    y_range: Range<i32>,
+) -> HashSet<XY> {
     let mut inner_candidates = HashSet::new();
 
     for y in y_range {
@@ -194,12 +194,15 @@ fn print_grid(boundary: &HashMap<XY, Direction>, inner: &HashSet<XY>, w: i32, h:
     for y in 0..h {
         for x in 0..w {
             let p = XY(x as i64, y as i64);
-            print!("{}", match (boundary.contains_key(&p), inner.contains(&p)) {
-                (true, false) => '*',
-                (false, true) => 'I',
-                (false, false) => '.',
-                (true, true) => 'X',
-            });
+            print!(
+                "{}",
+                match (boundary.contains_key(&p), inner.contains(&p)) {
+                    (true, false) => '*',
+                    (false, true) => 'I',
+                    (false, false) => '.',
+                    (true, true) => 'X',
+                }
+            );
         }
         println!();
     }
@@ -207,7 +210,9 @@ fn print_grid(boundary: &HashMap<XY, Direction>, inner: &HashSet<XY>, w: i32, h:
 
 pub fn part_one(input: &str) -> Option<u32> {
     let grid = DenseGrid::parse(input, parse_pipe, Some(Pipe::Empty));
-    let Some((_, start_xy)) = grid.find(|pipe| *pipe == Pipe::Start) else { panic!() };
+    let Some((_, start_xy)) = grid.find(|pipe| *pipe == Pipe::Start) else {
+        panic!()
+    };
 
     let (cycle_length, _) = find_cycle(start_xy, &grid);
 
@@ -217,14 +222,12 @@ pub fn part_one(input: &str) -> Option<u32> {
 #[allow(unused)]
 pub fn part_two(input: &str) -> Option<u32> {
     let grid = DenseGrid::parse(input, parse_pipe, Some(Pipe::Empty));
-    let Some((_, start_xy)) = grid.find(|pipe| *pipe == Pipe::Start) else { panic!() };
+    let Some((_, start_xy)) = grid.find(|pipe| *pipe == Pipe::Start) else {
+        panic!()
+    };
 
     let (_, boundary) = find_cycle(start_xy, &grid);
-    let inside = get_odd(
-        &boundary,
-        0..(grid.width as i32),
-        0..(grid.height() as i32),
-    );
+    let inside = get_odd(&boundary, 0..(grid.width as i32), 0..(grid.height() as i32));
 
     println!("Inner:");
     print_grid(&boundary, &inside, grid.width as i32, grid.height() as i32);
@@ -270,7 +273,9 @@ mod tests {
     fn plot() {
         let input = advent_of_code::template::read_file("inputs", DAY);
         let grid = DenseGrid::parse(&input, parse_pipe, Some(Pipe::Empty));
-        let Some((_, start_xy)) = grid.find(|pipe| *pipe == Pipe::Start) else { panic!() };
+        let Some((_, start_xy)) = grid.find(|pipe| *pipe == Pipe::Start) else {
+            panic!()
+        };
         let (_, boundary) = find_cycle(start_xy, &grid);
 
         // plot_grid(&GridOptions {

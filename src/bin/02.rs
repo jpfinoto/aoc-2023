@@ -1,5 +1,5 @@
 use lazy_static::lazy_static;
-use regex::{Regex};
+use regex::Regex;
 advent_of_code::solution!(2);
 
 struct CubeDraw {
@@ -28,15 +28,9 @@ fn parse_draw(draw: &str) -> CubeDraw {
     for draw in CUBE_RE.captures_iter(draw) {
         let count = u32::from_str_radix(&draw["count"], 10).unwrap();
         match &draw["color"] {
-            "red" => {
-                cubes.red = count
-            }
-            "green" => {
-                cubes.green = count
-            }
-            "blue" => {
-                cubes.blue = count
-            }
+            "red" => cubes.red = count,
+            "green" => cubes.green = count,
+            "blue" => cubes.blue = count,
             _ => {}
         }
     }
@@ -54,11 +48,16 @@ fn parse_game(line: &str) -> Option<Game> {
 
     let draws: Vec<_> = base_caps["draws"].split(";").map(parse_draw).collect();
 
-    Some(Game { number: game_num, draws })
+    Some(Game {
+        number: game_num,
+        draws,
+    })
 }
 
 fn is_game_valid(game: &Game) -> bool {
-    game.draws.iter().all(|draw| draw.red <= 12 && draw.green <= 13 && draw.blue <= 14)
+    game.draws
+        .iter()
+        .all(|draw| draw.red <= 12 && draw.green <= 13 && draw.blue <= 14)
 }
 
 fn get_game_power(game: &Game) -> u32 {

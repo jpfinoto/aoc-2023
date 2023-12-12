@@ -24,33 +24,48 @@ pub trait GridRenderer<T> {
     fn render(&self, tile: &T) -> Color;
 }
 
-pub struct StaticGrid<'a, T, R> where T: Cellular, R: GridRenderer<T> {
+pub struct StaticGrid<'a, T, R>
+where
+    T: Cellular,
+    R: GridRenderer<T>,
+{
     options: &'a GridOptions,
     renderer: &'a R,
     data: &'a [T],
 }
 
 pub fn plot_grid<T, R>(options: &GridOptions, renderer: &R, data: &[T])
-    where T: Cellular, R: GridRenderer<T>
+where
+    T: Cellular,
+    R: GridRenderer<T>,
 {
-    base_loop(&options.window, &mut StaticGrid {
-        options,
-        renderer,
-        data,
-    });
+    base_loop(
+        &options.window,
+        &mut StaticGrid {
+            options,
+            renderer,
+            data,
+        },
+    );
 }
 
-impl<'a, T, R> RenderCallback for StaticGrid<'a, T, R> where T: Cellular, R: GridRenderer<T> {
+impl<'a, T, R> RenderCallback for StaticGrid<'a, T, R>
+where
+    T: Cellular,
+    R: GridRenderer<T>,
+{
     fn on_render(&self, canvas: &mut WindowCanvas) {
         for item in self.data {
             canvas.set_draw_color(self.renderer.render(&item));
             let grid_cell = item.cell();
-            canvas.fill_rect(Rect::new(
-                grid_cell.left,
-                grid_cell.top,
-                (((grid_cell.right - grid_cell.left) as f32) * self.options.grid_scale) as u32,
-                (((grid_cell.bottom - grid_cell.top) as f32) * self.options.grid_scale) as u32,
-            )).expect("fill rect");
+            canvas
+                .fill_rect(Rect::new(
+                    grid_cell.left,
+                    grid_cell.top,
+                    (((grid_cell.right - grid_cell.left) as f32) * self.options.grid_scale) as u32,
+                    (((grid_cell.bottom - grid_cell.top) as f32) * self.options.grid_scale) as u32,
+                ))
+                .expect("fill rect");
         }
     }
 }

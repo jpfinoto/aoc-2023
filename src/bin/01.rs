@@ -1,11 +1,13 @@
-use std::collections::HashMap;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::collections::HashMap;
 
 advent_of_code::solution!(1);
 
 fn make_number(first: Option<u32>, last: Option<u32>) -> Option<u32> {
-    first.or(last).and_then(|_| Some(first.or(last).unwrap() * 10 + last.or(first).unwrap()))
+    first
+        .or(last)
+        .and_then(|_| Some(first.or(last).unwrap() * 10 + last.or(first).unwrap()))
 }
 
 fn get_numbers_simple(line: &str) -> Option<u32> {
@@ -16,14 +18,8 @@ fn get_numbers_simple(line: &str) -> Option<u32> {
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
-    return Some(
-        input
-            .split("\n")
-            .flat_map(get_numbers_simple)
-            .sum()
-    );
+    return Some(input.split("\n").flat_map(get_numbers_simple).sum());
 }
-
 
 lazy_static! {
     static ref VALUE_MAP: HashMap<&'static str, u32> = HashMap::from([
@@ -46,23 +42,18 @@ lazy_static! {
         ("8", 8),
         ("9", 9),
     ]);
-
-    static ref FIND_FIRST_RE: Regex = Regex::new(
-        r"^.*?(one|two|three|four|five|six|seven|eight|nine|1|2|3|4|5|6|7|8|9)"
-    ).unwrap();
-
-    static ref FIND_LAST_RE: Regex = Regex::new(
-        r".*(one|two|three|four|five|six|seven|eight|nine|1|2|3|4|5|6|7|8|9).*?$"
-    ).unwrap();
+    static ref FIND_FIRST_RE: Regex =
+        Regex::new(r"^.*?(one|two|three|four|five|six|seven|eight|nine|1|2|3|4|5|6|7|8|9)")
+            .unwrap();
+    static ref FIND_LAST_RE: Regex =
+        Regex::new(r".*(one|two|three|four|five|six|seven|eight|nine|1|2|3|4|5|6|7|8|9).*?$")
+            .unwrap();
 }
 
 fn capture_int(line: &str, re: &Regex) -> Option<u32> {
-    re
-        .captures(line)
-        .and_then(|m|
-            m.get(1)
-                .and_then(|s| VALUE_MAP.get(s.as_str()))
-        ).cloned()
+    re.captures(line)
+        .and_then(|m| m.get(1).and_then(|s| VALUE_MAP.get(s.as_str())))
+        .cloned()
 }
 
 fn get_numbers(line: &str) -> Option<u32> {
@@ -75,12 +66,7 @@ fn get_numbers(line: &str) -> Option<u32> {
 pub fn part_two(input: &str) -> Option<u32> {
     let lines: Vec<_> = input.split("\n").collect();
 
-    return Some(
-        lines
-            .into_iter()
-            .flat_map(get_numbers)
-            .sum()
-    );
+    return Some(lines.into_iter().flat_map(get_numbers).sum());
 }
 
 #[cfg(test)]

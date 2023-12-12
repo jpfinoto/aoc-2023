@@ -48,7 +48,6 @@ impl RangeMap {
     }
 }
 
-
 fn range_finder(source_id: u64) -> Box<dyn Fn(&RangeMap) -> Ordering> {
     Box::new(move |range: &RangeMap| {
         if source_id >= range.source && source_id < range.source + range.length {
@@ -63,7 +62,8 @@ fn range_finder(source_id: u64) -> Box<dyn Fn(&RangeMap) -> Ordering> {
 
 impl Mapper {
     fn map_value(&self, source_id: u64) -> u64 {
-        self.get_range_map(source_id).map_or(source_id, |m| m.map_value(source_id))
+        self.get_range_map(source_id)
+            .map_or(source_id, |m| m.map_value(source_id))
     }
 
     fn get_range_map(&self, source_id: u64) -> Option<&RangeMap> {
@@ -96,17 +96,21 @@ impl Mapper {
                 let mapped_end = mapper.map_or(end - 1, |m| m.map_value(end - 1));
 
                 mapped_start..=mapped_end
-            }).collect_vec()
+            })
+            .collect_vec()
     }
 
     #[allow(dead_code)]
     fn inverse(&self) -> Mapper {
-        let mut ranges = self.ranges.iter().map(RangeMap::inverse).rev().collect_vec();
+        let mut ranges = self
+            .ranges
+            .iter()
+            .map(RangeMap::inverse)
+            .rev()
+            .collect_vec();
         ranges.sort();
 
-        Mapper {
-            ranges
-        }
+        Mapper { ranges }
     }
 }
 
@@ -131,9 +135,7 @@ fn parse_block(block: &str) -> Mapper {
     let mut ranges = block.split("\n").flat_map(parse_range).collect_vec();
     ranges.sort();
 
-    Mapper {
-        ranges
-    }
+    Mapper { ranges }
 }
 
 fn parse(input: &str) -> Inputs {
@@ -171,10 +173,17 @@ fn compile(mappers: &Vec<Mapper>) -> Mapper {
 
     let inverse_mappers = mappers.iter().map(Mapper::inverse).rev().collect_vec();
 
-    let (min, max) = match mappers.last().unwrap().ranges.iter().flat_map(|m| m.bounds()).minmax() {
+    let (min, max) = match mappers
+        .last()
+        .unwrap()
+        .ranges
+        .iter()
+        .flat_map(|m| m.bounds())
+        .minmax()
+    {
         MinMaxResult::NoElements => panic!(),
         MinMaxResult::OneElement(min) => (min, min),
-        MinMaxResult::MinMax(min, max) => (min, max)
+        MinMaxResult::MinMax(min, max) => (min, max),
     };
 
     let final_ranges = map_range(min..=max, mappers);
@@ -201,9 +210,7 @@ fn compile(mappers: &Vec<Mapper>) -> Mapper {
 
     println!("compiled: {:?}", ranges);
 
-    Mapper {
-        ranges
-    }
+    Mapper { ranges }
 }
 
 pub fn part_one(input: &str) -> Option<u64> {

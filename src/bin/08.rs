@@ -1,9 +1,9 @@
-use std::collections::{HashMap};
+use std::collections::HashMap;
 
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use regex::Regex;
 use rayon::prelude::*;
+use regex::Regex;
 
 advent_of_code::solution!(8);
 
@@ -22,9 +22,8 @@ struct Node {
 }
 
 lazy_static! {
-    static ref NODE_RE: Regex = Regex::new(
-        r"^(?P<label>\w+) = \((?P<left>\w+), (?P<right>\w+)\)$"
-    ).unwrap();
+    static ref NODE_RE: Regex =
+        Regex::new(r"^(?P<label>\w+) = \((?P<left>\w+), (?P<right>\w+)\)$").unwrap();
 }
 
 fn char_idx(c: char) -> u32 {
@@ -39,18 +38,14 @@ fn to_id(label: &str) -> u32 {
 
 impl Node {
     fn parse(line: &str) -> Option<Node> {
-        NODE_RE
-            .captures(line)
-            .and_then(
-                |cap| Some(
-                    Node {
-                        label: cap["label"].into(),
-                        id: to_id(&cap["label"]),
-                        left: to_id(&cap["left"]),
-                        right: to_id(&cap["right"]),
-                    }
-                )
-            )
+        NODE_RE.captures(line).and_then(|cap| {
+            Some(Node {
+                label: cap["label"].into(),
+                id: to_id(&cap["label"]),
+                left: to_id(&cap["left"]),
+                right: to_id(&cap["right"]),
+            })
+        })
     }
 }
 
@@ -61,7 +56,7 @@ fn parse(input: &str) -> (Vec<Direction>, HashMap<u32, Node>) {
         map_block
             .split("\n")
             .flat_map(Node::parse)
-            .map(|node| (node.id, node))
+            .map(|node| (node.id, node)),
     );
 
     let moves = dir_line
@@ -69,8 +64,9 @@ fn parse(input: &str) -> (Vec<Direction>, HashMap<u32, Node>) {
         .flat_map(|c| match c {
             'L' => Some(Direction::Left),
             'R' => Some(Direction::Right),
-            _ => None
-        }).collect_vec();
+            _ => None,
+        })
+        .collect_vec();
 
     (moves, map)
 }
@@ -79,7 +75,12 @@ fn id_ends_with(id: u32, c: char) -> bool {
     (id & 0xff) == char_idx(c)
 }
 
-fn get_cycle(moves: &Vec<Direction>, map: &HashMap<u32, Node>, node: &Node, target_cond: fn(&Node) -> bool) -> u64 {
+fn get_cycle(
+    moves: &Vec<Direction>,
+    map: &HashMap<u32, Node>,
+    node: &Node,
+    target_cond: fn(&Node) -> bool,
+) -> u64 {
     let mut current_node = node;
     let total_moves = moves.len();
     let mut last_cycle = 0u64;
@@ -136,20 +137,16 @@ pub fn part_one(input: &str) -> Option<u32> {
 pub fn part_two(input: &str) -> Option<u64> {
     let (moves, map) = parse(input);
 
-    let starting_nodes = map.values().filter(|&v| id_ends_with(v.id, 'A')).collect_vec();
-    let cycles: Vec<u64> =
-        starting_nodes
-            .par_iter()
-            .map(|node|
-                get_cycle(&moves, &map, node, |node| id_ends_with(node.id, 'Z'))
-            ).collect();
+    let starting_nodes = map
+        .values()
+        .filter(|&v| id_ends_with(v.id, 'A'))
+        .collect_vec();
+    let cycles: Vec<u64> = starting_nodes
+        .par_iter()
+        .map(|node| get_cycle(&moves, &map, node, |node| id_ends_with(node.id, 'Z')))
+        .collect();
 
-    Some(
-        cycles
-            .into_iter()
-            .reduce(lcm)
-            .unwrap()
-    )
+    Some(cycles.into_iter().reduce(lcm).unwrap())
 }
 
 #[cfg(test)]

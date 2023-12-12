@@ -1,7 +1,7 @@
-use lazy_static::lazy_static;
-use regex::Regex;
 use advent_of_code::utils::parsing;
+use lazy_static::lazy_static;
 use rayon::prelude::*;
+use regex::Regex;
 
 advent_of_code::solution!(4);
 
@@ -11,22 +11,24 @@ struct Card {
 }
 
 lazy_static! {
-    static ref CARD_RE: Regex = Regex::new(
-        r"^Card .*: (?P<winning>.*) [|] (?P<player>.*)$"
-    ).unwrap();
+    static ref CARD_RE: Regex =
+        Regex::new(r"^Card .*: (?P<winning>.*) [|] (?P<player>.*)$").unwrap();
 }
 
 fn parse_card(line: &str) -> Option<Card> {
-    CARD_RE.captures(line).and_then(
-        |matches| Some(Card {
+    CARD_RE.captures(line).and_then(|matches| {
+        Some(Card {
             winning_numbers: parsing::get_numbers(&matches["winning"]),
             player_numbers: parsing::get_numbers(&matches["player"]),
         })
-    )
+    })
 }
 
 fn get_matches(card: &Card) -> usize {
-    card.player_numbers.iter().filter(|n| card.winning_numbers.contains(n)).count()
+    card.player_numbers
+        .iter()
+        .filter(|n| card.winning_numbers.contains(n))
+        .count()
 }
 
 fn get_points(card: &Card) -> usize {
@@ -45,7 +47,7 @@ pub fn part_one(input: &str) -> Option<u32> {
             .split("\n")
             .par_bridge()
             .flat_map(|l| parse_card(l).and_then(|c| Some(get_points(&c))))
-            .sum::<usize>() as u32
+            .sum::<usize>() as u32,
     )
 }
 

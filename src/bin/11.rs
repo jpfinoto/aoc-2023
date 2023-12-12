@@ -14,15 +14,12 @@ fn parse_galaxies(block: &str) -> Vec<Galaxy> {
         .map(str::trim)
         .enumerate()
         .flat_map(|(y, line)| {
-            line
-                .chars()
-                .enumerate()
-                .flat_map(move |(x, c)| match c {
-                    '#' => Some(Galaxy {
-                        pos: XY(x as i64, y as i64)
-                    }),
-                    _ => None,
-                })
+            line.chars().enumerate().flat_map(move |(x, c)| match c {
+                '#' => Some(Galaxy {
+                    pos: XY(x as i64, y as i64),
+                }),
+                _ => None,
+            })
         })
         .collect_vec()
 }
@@ -50,18 +47,31 @@ fn interp_1d(x: &Vec<i64>, y: &Vec<i64>, value: &i64) -> i64 {
 }
 
 fn expand(galaxies: &Vec<Galaxy>, multiplier: i64) -> Vec<Galaxy> {
-    let all_x = galaxies.iter().map(|g| g.pos.0).sorted().dedup().collect_vec();
+    let all_x = galaxies
+        .iter()
+        .map(|g| g.pos.0)
+        .sorted()
+        .dedup()
+        .collect_vec();
     let expanded_x = expand_vector(&all_x, multiplier);
 
-    let all_y = galaxies.iter().map(|g| g.pos.1).sorted().dedup().collect_vec();
+    let all_y = galaxies
+        .iter()
+        .map(|g| g.pos.1)
+        .sorted()
+        .dedup()
+        .collect_vec();
     let expanded_y = expand_vector(&all_y, multiplier);
 
-    galaxies.iter().map(|g| Galaxy {
-        pos: XY(
-            interp_1d(&all_x, &expanded_x, &g.pos.0),
-            interp_1d(&all_y, &expanded_y, &g.pos.1),
-        )
-    }).collect()
+    galaxies
+        .iter()
+        .map(|g| Galaxy {
+            pos: XY(
+                interp_1d(&all_x, &expanded_x, &g.pos.0),
+                interp_1d(&all_y, &expanded_y, &g.pos.1),
+            ),
+        })
+        .collect()
 }
 
 fn distance(a: &Galaxy, b: &Galaxy) -> i64 {
