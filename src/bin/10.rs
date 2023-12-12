@@ -164,26 +164,19 @@ fn get_odd(
                 match boundary_dir {
                     Direction::UpDown => {
                         boundary_crossings += 1;
-                        print!("!");
                     }
-                    Direction::LeftRight => {
-                        print!("-");
-                    }
+                    Direction::LeftRight => {}
                     Direction::Corner(dir) => {
                         corner_crossings += dir;
-                        print!("*");
                     }
                 }
             } else {
-                if (boundary_crossings + (corner_crossings.abs() as usize)) % 2 == 1 {
-                    print!("I");
+                if (boundary_crossings + ((corner_crossings.abs() as usize) / 2)) % 2 == 1 {
                     inner_candidates.insert(p);
                 } else {
-                    print!("O");
                 }
             }
         }
-        println!();
     }
 
     inner_candidates
@@ -219,7 +212,6 @@ pub fn part_one(input: &str) -> Option<u32> {
     Some(cycle_length / 2)
 }
 
-#[allow(unused)]
 pub fn part_two(input: &str) -> Option<u32> {
     let grid = DenseGrid::parse(input, parse_pipe, Some(Pipe::Empty));
     let Some((_, start_xy)) = grid.find(|pipe| *pipe == Pipe::Start) else {
@@ -229,12 +221,9 @@ pub fn part_two(input: &str) -> Option<u32> {
     let (_, boundary) = find_cycle(start_xy, &grid);
     let inside = get_odd(&boundary, 0..(grid.width as i32), 0..(grid.height() as i32));
 
-    println!("Inner:");
-    print_grid(&boundary, &inside, grid.width as i32, grid.height() as i32);
-
     let total = inside.len();
 
-    None
+    Some(total as u32)
 }
 
 #[cfg(test)]

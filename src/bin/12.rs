@@ -96,6 +96,7 @@ fn bruteforce_count_options(sm: &SpringsMap) -> u32 {
     valid_count
 }
 
+#[allow(dead_code)]
 fn unfold(sm: &SpringsMap) -> SpringsMap {
     let groups = sm.groups.repeat(5);
     let springs = vec![
@@ -124,11 +125,13 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    Some(
-        parse(input)
-            .map(|s| bruteforce_count_options(&unfold(&s)))
-            .sum(),
-    )
+    // Some(
+    //     parse(input)
+    //         .map(|s| bruteforce_count_options(&unfold(&s)))
+    //         .sum(),
+    // )
+
+    None
 }
 
 #[cfg(test)]
