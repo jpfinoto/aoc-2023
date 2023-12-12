@@ -17,7 +17,7 @@ struct DenseGrid<T> {
 enum Direction {
     UpDown,
     LeftRight,
-    Corner,
+    Corner(i64),
 }
 
 const UP: XY = XY(0, -1);
@@ -127,13 +127,17 @@ fn find_cycle(start_xy: XY, grid: &DenseGrid<Pipe>) -> (u32, HashMap<XY, Directi
                     let pipe_direction = match (a, b) {
                         (&UP, &DOWN) => Direction::UpDown,
                         (&LEFT, &RIGHT) => Direction::LeftRight,
-                        _ => Direction::Corner,
+                        (&UP, &RIGHT) => Direction::Corner(-1),
+                        (&UP, &LEFT) => Direction::Corner(1),
+                        (&DOWN, &LEFT) => Direction::Corner(-1),
+                        (&DOWN, &RIGHT) => Direction::Corner(1),
+                        _ => panic!("Invalid pipe"),
                     };
+
+                    boundary_pipes.insert(xy, pipe_direction);
 
                     prev_xy = xy;
                     xy = next_step;
-
-                    boundary_pipes.insert(xy, pipe_direction);
                 }
                 Pipe::Empty => break,
                 Pipe::Start => return (steps, boundary_pipes),
@@ -146,65 +150,40 @@ fn find_cycle(start_xy: XY, grid: &DenseGrid<Pipe>) -> (u32, HashMap<XY, Directi
     panic!("Couldn't find route");
 }
 
-fn get_odd(boundary: &HashMap<XY, Direction>, row_first: bool, x_range: Range<i32>, y_range: Range<i32>) -> HashSet<XY> {
-    // doesn't work lol
-
+fn get_odd(boundary: &HashMap<XY, Direction>, x_range: Range<i32>, y_range: Range<i32>) -> HashSet<XY> {
     let mut inner_candidates = HashSet::new();
 
-    let (first_range, second_range) = if row_first {
-        (y_range, x_range)
-    } else {
-        (x_range, y_range)
-    };
-
-    let filter_type = if row_first {
-        Direction::UpDown
-    } else {
-        Direction::LeftRight
-    };
-
-    // println!("row first? {row_first} check ranges first={:?} second={:?}", first_range, second_range);
-
-    for first in first_range.clone() {
+    for y in y_range {
         let mut boundary_crossings = 0usize;
-        let mut batch_candidates = HashSet::new();
-        let mut is_crossing = false;
+        let mut corner_crossings = 0i64;
 
-        for second in second_range.clone() {
-            let p = if row_first {
-                XY(second as i64, first as i64)
-            } else {
-                XY(first as i64, second as i64)
-            };
+        for x in x_range.clone() {
+            let p = XY(x as i64, y as i64);
 
             if let Some(boundary_dir) = boundary.get(&p) {
-                inner_candidates.extend(batch_candidates.iter());
-                batch_candidates.clear();
-
-                if boundary_dir == &filter_type || boundary_dir == &Direction::Corner {
-                    boundary_crossings += 1;
-                    is_crossing = false;
-
-                    // print!("*");
-                } else if !is_crossing {
-                    // boundary_crossings += 1;
-                    is_crossing = true;
-
-                    // print!("!");
-                } else {
-                    // print!("?");
+                match boundary_dir {
+                    Direction::UpDown => {
+                        boundary_crossings += 1;
+                        print!("!");
+                    }
+                    Direction::LeftRight => {
+                        print!("-");
+                    }
+                    Direction::Corner(dir) => {
+                        corner_crossings += dir;
+                        print!("*");
+                    }
                 }
             } else {
-                is_crossing = false;
-                if boundary_crossings % 2 == 1 {
-                    // print!("I");
-                    batch_candidates.insert(p);
+                if (boundary_crossings + (corner_crossings.abs() as usize)) % 2 == 1 {
+                    print!("I");
+                    inner_candidates.insert(p);
                 } else {
-                    // print!("O");
+                    print!("O");
                 }
             }
         }
-        // println!();
+        println!();
     }
 
     inner_candidates
@@ -241,30 +220,16 @@ pub fn part_two(input: &str) -> Option<u32> {
     let Some((_, start_xy)) = grid.find(|pipe| *pipe == Pipe::Start) else { panic!() };
 
     let (_, boundary) = find_cycle(start_xy, &grid);
-    let row_wise_candidates = get_odd(
+    let inside = get_odd(
         &boundary,
-        true,
         0..(grid.width as i32),
         0..(grid.height() as i32),
     );
 
-    let col_wise_candidates = get_odd(
-        &boundary,
-        false,
-        0..(grid.width as i32),
-        0..(grid.height() as i32),
-    );
+    println!("Inner:");
+    print_grid(&boundary, &inside, grid.width as i32, grid.height() as i32);
 
-    // let inside = HashSet::from_iter(row_wise_candidates.iter().filter(|p| col_wise_candidates.contains(p)).cloned());
-    //
-    // println!("Row candidates:");
-    // print_grid(&boundary, &row_wise_candidates, grid.width as i32, grid.height() as i32);
-    // println!("Col candidates:");
-    // print_grid(&boundary, &col_wise_candidates, grid.width as i32, grid.height() as i32);
-    // println!("Inner:");
-    // print_grid(&boundary, &inside, grid.width as i32, grid.height() as i32);
-
-    let total = row_wise_candidates.iter().filter(|p| col_wise_candidates.contains(p)).count();
+    let total = inside.len();
 
     None
 }
@@ -273,7 +238,7 @@ pub fn part_two(input: &str) -> Option<u32> {
 mod tests {
     use sdl2::pixels::Color;
 
-    use advent_of_code::utils::visuals::grid::{GridOptions, GridRenderer, plot_grid, WindowOptions};
+    use advent_of_code::utils::visuals::grid::GridRenderer;
 
     use super::*;
 
@@ -308,14 +273,14 @@ mod tests {
         let Some((_, start_xy)) = grid.find(|pipe| *pipe == Pipe::Start) else { panic!() };
         let (_, boundary) = find_cycle(start_xy, &grid);
 
-        plot_grid(&GridOptions {
-            window: WindowOptions {
-                width: 800,
-                height: 800,
-                title: "Pipe Dream",
-                background_color: Color::RGB(0, 0, 0),
-            },
-            grid_scale: 0.0,
-        }, &PipeRenderer {}, vec![].as_slice());
+        // plot_grid(&GridOptions {
+        //     window: WindowOptions {
+        //         width: 800,
+        //         height: 800,
+        //         title: "Pipe Dream",
+        //         background_color: Color::RGB(0, 0, 0),
+        //     },
+        //     grid_scale: 0.0,
+        // }, &PipeRenderer {}, vec![].as_slice());
     }
 }
