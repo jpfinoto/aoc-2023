@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use rayon::prelude::*;
 
 advent_of_code::solution!(13);
 
@@ -184,7 +185,7 @@ pub fn part_two(input: &str) -> Option<usize> {
 
     Some(
         mirrors
-            .iter()
+            .par_iter()
             .map(mutate_one)
             .map(|symmetry| match symmetry {
                 Symmetry::NONE => panic!("Not symmetric?"),
