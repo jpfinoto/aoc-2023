@@ -133,13 +133,13 @@ pub fn part_one(input: &str) -> Option<usize> {
 }
 
 pub fn part_two(input: &str) -> Option<usize> {
-    let cycle = [move_north, move_west, move_south, move_east];
+    let cycle_moves = [move_north, move_west, move_south, move_east];
     let mut grid = parse(input);
     let mut repetitions = vec![];
     let target_cycles = 1000000000usize;
 
     loop {
-        let new_grid = cycle.iter().fold(grid.clone(), |g, cb| cb(&g));
+        let new_grid = cycle_moves.iter().fold(grid.clone(), |g, cb| cb(&g));
 
         repetitions.push(
             new_grid
