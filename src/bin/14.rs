@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use std::collections::HashMap;
 
 use advent_of_code::utils::dense_grid::DenseGrid;
 
@@ -110,6 +111,12 @@ impl CalcLoad for Vec<&ReflectorTile> {
     }
 }
 
+impl CalcLoad for DenseGrid<ReflectorTile> {
+    fn calc_load(&self) -> usize {
+        self.columns_iter().map(|v| v.calc_load()).sum()
+    }
+}
+
 #[allow(dead_code)]
 fn print_grid(grid: &DenseGrid<ReflectorTile>) {
     grid.rows_iter().for_each(|r| {
@@ -135,58 +142,29 @@ pub fn part_one(input: &str) -> Option<usize> {
 pub fn part_two(input: &str) -> Option<usize> {
     let cycle_moves = [move_north, move_west, move_south, move_east];
     let mut grid = parse(input);
-    let mut repetitions = vec![];
     let target_cycles = 1000000000usize;
+    let mut last_seen_grids = HashMap::new();
+    last_seen_grids.insert(grid.clone(), 0usize);
 
-    loop {
+    for i in 1usize.. {
         let new_grid = cycle_moves.iter().fold(grid.clone(), |g, cb| cb(&g));
 
-        repetitions.push(
-            new_grid
-                .columns_iter()
-                .map(|v| v.calc_load())
-                .sum::<usize>(),
-        );
+        if let Some(last_grid_iter) = last_seen_grids.get(&new_grid) {
+            let cycle_length = i - last_grid_iter;
+            let target_grid_index = (target_cycles - cycle_length) % cycle_length;
 
-        if let Some((offset, cycle)) = try_find_cycle(&repetitions) {
-            return Some(cycle[(target_cycles - offset - 1) % cycle.len()]);
+            let Some((final_grid, _)) = last_seen_grids
+                .iter()
+                .find(|(_, &index)| index == target_grid_index)
+            else {
+                panic!("Where's my grid?")
+            };
+
+            return Some(final_grid.calc_load());
         }
 
-        grid = new_grid;
-    }
-}
-
-fn try_find_cycle(repetitions: &Vec<usize>) -> Option<(usize, Vec<usize>)> {
-    for cycle_len in 2..1000 {
-        let a = repetitions.iter().rev().take(cycle_len).collect_vec();
-
-        let b = repetitions
-            .iter()
-            .rev()
-            .skip(cycle_len)
-            .take(cycle_len)
-            .collect_vec();
-
-        if a != b {
-            continue;
-        }
-
-        let cycle = a.iter().rev().cloned().collect_vec();
-        let steps = repetitions.len();
-
-        // println!(
-        //     "Found cycle: {cycle:?} of length {:?} after {steps} steps",
-        //     cycle.len()
-        // );
-
-        for j in 0..steps / 2 {
-            let local_slice = repetitions.iter().skip(j).take(cycle_len).collect_vec();
-
-            if local_slice == cycle {
-                // println!("Cycle starts at {j}");
-                return Some((j, cycle.into_iter().cloned().collect()));
-            }
-        }
+        grid = new_grid.clone();
+        last_seen_grids.insert(new_grid, i);
     }
 
     None
