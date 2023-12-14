@@ -1,17 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 
-use itertools::Itertools;
-
+use advent_of_code::utils::dense_grid::{DenseGrid, DOWN, LEFT, RIGHT, UP};
 use advent_of_code::utils::geometry::XY;
 
 advent_of_code::solution!(10);
-
-struct DenseGrid<T> {
-    width: usize,
-    filler: Option<T>,
-    items: Vec<T>,
-}
 
 #[derive(Eq, PartialEq)]
 enum Direction {
@@ -20,12 +13,7 @@ enum Direction {
     Corner(i64),
 }
 
-const UP: XY = XY(0, -1);
-const DOWN: XY = XY(0, 1);
-const LEFT: XY = XY(-1, 0);
-const RIGHT: XY = XY(1, 0);
-
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 enum Pipe {
     TwoWay(XY, XY),
     Empty,
@@ -43,55 +31,6 @@ fn parse_pipe(c: char) -> Pipe {
         '.' => Pipe::Empty,
         'S' => Pipe::Start,
         _ => panic!("Invalid char {c}"),
-    }
-}
-
-impl<T> DenseGrid<T> {
-    fn parse(block: &str, cell_parser: fn(c: char) -> T, filler: Option<T>) -> DenseGrid<T> {
-        let width = block.splitn(2, "\n").map(str::trim).next().unwrap().len();
-        let items = block
-            .split("\n")
-            .map(str::trim)
-            .flat_map(str::chars)
-            .map(cell_parser)
-            .collect_vec();
-
-        DenseGrid {
-            width,
-            filler,
-            items,
-        }
-    }
-
-    fn get(&self, xy: XY) -> Option<&T> {
-        let (x, y) = xy.as_tuple();
-        if x < 0 || y < 0 {
-            self.filler.as_ref()
-        } else {
-            let index = y * (self.width as i64) + x;
-            self.items.get(index as usize).or(self.filler.as_ref())
-        }
-    }
-
-    fn find(&self, predicate: fn(item: &T) -> bool) -> Option<(&T, XY)> {
-        self.items
-            .iter()
-            .enumerate()
-            .find(|(_, item)| predicate(*item))
-            .and_then(|(i, item)| Some((item, self.index_to_xy(i))))
-    }
-
-    fn index_to_xy(&self, idx: usize) -> XY {
-        XY((idx % self.width) as i64, (idx / self.width) as i64)
-    }
-
-    fn height(&self) -> usize {
-        self.items.len() / self.width
-    }
-
-    #[allow(dead_code)]
-    fn rows_iter(&self) -> impl Iterator<Item = &[T]> {
-        (0..self.height()).map(move |y| &self.items[y * self.width..(y + 1) * self.width])
     }
 }
 
