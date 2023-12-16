@@ -1,7 +1,8 @@
+use std::str::FromStr;
+
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::str::FromStr;
 
 advent_of_code::solution!(15);
 
@@ -12,8 +13,8 @@ lazy_static! {
 
 #[derive(Debug)]
 enum Operation {
-    INSERT(u32),
-    REMOVE,
+    Insert(u32),
+    Remove,
 }
 
 #[derive(Debug)]
@@ -29,8 +30,8 @@ trait AsciiHash {
 impl InitStep {
     fn as_string(&self) -> String {
         match self.operation {
-            Operation::INSERT(focal_length) => format!("{}={focal_length}", self.label),
-            Operation::REMOVE => format!("{}-", self.label),
+            Operation::Insert(focal_length) => format!("{}={focal_length}", self.label),
+            Operation::Remove => format!("{}-", self.label),
         }
     }
 
@@ -39,10 +40,10 @@ impl InitStep {
         let op = cap.name("op")?.as_str();
         let label = cap.name("label")?.as_str().to_string();
         let operation = match op {
-            "=" => Some(Operation::INSERT(
+            "=" => Some(Operation::Insert(
                 u32::from_str(cap.name("fl")?.as_str()).ok()?,
             )),
-            "-" => Some(Operation::REMOVE),
+            "-" => Some(Operation::Remove),
             _ => None,
         }?;
 
@@ -96,7 +97,7 @@ pub fn part_two(input: &str) -> Option<u32> {
         let box_index = step.label_hash() as usize;
         let current_box = &mut boxes[box_index];
         match step.operation {
-            Operation::INSERT(focal_length) => {
+            Operation::Insert(focal_length) => {
                 if let Some((previous_lens_index, _)) = current_box
                     .iter()
                     .find_position(|(lens_label, _)| *lens_label == step.label)
@@ -106,7 +107,7 @@ pub fn part_two(input: &str) -> Option<u32> {
                     current_box.push((step.label.clone(), focal_length))
                 }
             }
-            Operation::REMOVE => {
+            Operation::Remove => {
                 boxes[box_index] = current_box
                     .iter()
                     .filter(|(lens_label, _)| *lens_label != step.label)

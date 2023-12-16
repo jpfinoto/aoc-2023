@@ -5,8 +5,8 @@ advent_of_code::solution!(13);
 
 #[derive(Eq, PartialEq, Debug)]
 enum Tile {
-    ASH,
-    ROCK,
+    Ash,
+    Rock,
 }
 
 struct MirrorArray {
@@ -14,9 +14,9 @@ struct MirrorArray {
 }
 
 enum Symmetry {
-    NONE,
-    COLUMN(usize),
-    ROW(usize),
+    None,
+    Column(usize),
+    Row(usize),
 }
 
 impl MirrorArray {
@@ -24,8 +24,8 @@ impl MirrorArray {
         let tiles = line
             .chars()
             .flat_map(|c| match c {
-                '#' => Some(Tile::ROCK),
-                '.' => Some(Tile::ASH),
+                '#' => Some(Tile::Rock),
+                '.' => Some(Tile::Ash),
                 _ => None,
             })
             .collect_vec();
@@ -90,12 +90,12 @@ impl MirrorArray {
 
     fn find_symmetry(&self) -> Symmetry {
         self.find_symmetrical_col()
-            .and_then(|r| Some(Symmetry::COLUMN(r)))
+            .and_then(|r| Some(Symmetry::Column(r)))
             .or_else(|| {
                 self.find_symmetrical_row()
-                    .and_then(|r| Some(Symmetry::ROW(r)))
+                    .and_then(|r| Some(Symmetry::Row(r)))
             })
-            .or(Some(Symmetry::NONE))
+            .or(Some(Symmetry::None))
             .unwrap()
     }
 }
@@ -150,18 +150,18 @@ fn mutate_one(mirrors: &MirrorArray) -> Symmetry {
     for symmetry_col in 0..width - 1 {
         let diffs = differences(mirrors, symmetry_col, MirrorArray::get_col);
         if diffs.len() == 1 {
-            return Symmetry::COLUMN(symmetry_col);
+            return Symmetry::Column(symmetry_col);
         }
     }
 
     for symmetry_row in 0..height - 1 {
         let diffs = differences(mirrors, symmetry_row, MirrorArray::get_row);
         if diffs.len() == 1 {
-            return Symmetry::ROW(symmetry_row);
+            return Symmetry::Row(symmetry_row);
         }
     }
 
-    Symmetry::NONE
+    Symmetry::None
 }
 
 pub fn part_one(input: &str) -> Option<usize> {
@@ -172,9 +172,9 @@ pub fn part_one(input: &str) -> Option<usize> {
             .iter()
             .map(MirrorArray::find_symmetry)
             .map(|symmetry| match symmetry {
-                Symmetry::NONE => panic!("Not symmetric?"),
-                Symmetry::COLUMN(r) => r + 1,
-                Symmetry::ROW(r) => 100 * (r + 1),
+                Symmetry::None => panic!("Not symmetric?"),
+                Symmetry::Column(r) => r + 1,
+                Symmetry::Row(r) => 100 * (r + 1),
             })
             .sum(),
     )
@@ -188,9 +188,9 @@ pub fn part_two(input: &str) -> Option<usize> {
             .par_iter()
             .map(mutate_one)
             .map(|symmetry| match symmetry {
-                Symmetry::NONE => panic!("Not symmetric?"),
-                Symmetry::COLUMN(r) => r + 1,
-                Symmetry::ROW(r) => 100 * (r + 1),
+                Symmetry::None => panic!("Not symmetric?"),
+                Symmetry::Column(r) => r + 1,
+                Symmetry::Row(r) => 100 * (r + 1),
             })
             .sum(),
     )

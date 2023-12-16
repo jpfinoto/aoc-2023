@@ -90,7 +90,7 @@ fn get_odd(
     x_range: Range<i32>,
     y_range: Range<i32>,
 ) -> HashSet<XY> {
-    let mut inner_candidates = HashSet::new();
+    let mut inner_tiles = HashSet::new();
 
     for y in y_range {
         let mut boundary_crossings = 0usize;
@@ -111,14 +111,14 @@ fn get_odd(
                 }
             } else {
                 if (boundary_crossings + ((corner_crossings.abs() as usize) / 2)) % 2 == 1 {
-                    inner_candidates.insert(p);
+                    inner_tiles.insert(p);
                 } else {
                 }
             }
         }
     }
 
-    inner_candidates
+    inner_tiles
 }
 
 #[allow(dead_code)]

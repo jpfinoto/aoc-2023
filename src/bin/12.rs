@@ -7,9 +7,9 @@ advent_of_code::solution!(12);
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 enum RepairStatus {
-    UNKNOWN,
-    OPERATIONAL,
-    DAMAGED,
+    Unknown,
+    Operational,
+    Damaged,
 }
 
 struct SpringsMap {
@@ -23,9 +23,9 @@ fn parse_line(line: &str) -> Option<SpringsMap> {
     let springs = springs_str
         .chars()
         .flat_map(|c| match c {
-            '#' => Some(RepairStatus::DAMAGED),
-            '.' => Some(RepairStatus::OPERATIONAL),
-            '?' => Some(RepairStatus::UNKNOWN),
+            '#' => Some(RepairStatus::Damaged),
+            '.' => Some(RepairStatus::Operational),
+            '?' => Some(RepairStatus::Unknown),
             _ => None,
         })
         .collect_vec();
@@ -43,9 +43,9 @@ fn find_groups(springs: &Vec<RepairStatus>) -> Vec<u32> {
         .group_by(|e| *e)
         .into_iter()
         .flat_map(|(status, group)| match status {
-            RepairStatus::UNKNOWN => None,
-            RepairStatus::OPERATIONAL => None,
-            RepairStatus::DAMAGED => Some(group.collect_vec().len() as u32),
+            RepairStatus::Unknown => None,
+            RepairStatus::Operational => None,
+            RepairStatus::Damaged => Some(group.collect_vec().len() as u32),
         })
         .collect()
 }
@@ -63,9 +63,9 @@ fn apply_unknowns(
 
     for base_status in base {
         result.push(match base_status {
-            RepairStatus::UNKNOWN => **replacements_iter.next().unwrap(),
-            RepairStatus::OPERATIONAL => *base_status,
-            RepairStatus::DAMAGED => *base_status,
+            RepairStatus::Unknown => **replacements_iter.next().unwrap(),
+            RepairStatus::Operational => *base_status,
+            RepairStatus::Damaged => *base_status,
         });
     }
 
@@ -77,14 +77,14 @@ fn bruteforce_count_options(sm: &SpringsMap) -> u32 {
         .springs
         .iter()
         .filter(|s| match s {
-            RepairStatus::UNKNOWN => true,
+            RepairStatus::Unknown => true,
             _ => false,
         })
         .count();
     let mut valid_count = 0u32;
 
     for replacements in (0..total_unknowns)
-        .map(|_| [RepairStatus::OPERATIONAL, RepairStatus::DAMAGED].iter())
+        .map(|_| [RepairStatus::Operational, RepairStatus::Damaged].iter())
         .multi_cartesian_product()
     {
         let r = apply_unknowns(&sm.springs, &replacements);
@@ -101,13 +101,13 @@ fn unfold(sm: &SpringsMap) -> SpringsMap {
     let groups = sm.groups.repeat(5);
     let springs = vec![
         sm.springs.clone(),
-        vec![RepairStatus::UNKNOWN],
+        vec![RepairStatus::Unknown],
         sm.springs.clone(),
-        vec![RepairStatus::UNKNOWN],
+        vec![RepairStatus::Unknown],
         sm.springs.clone(),
-        vec![RepairStatus::UNKNOWN],
+        vec![RepairStatus::Unknown],
         sm.springs.clone(),
-        vec![RepairStatus::UNKNOWN],
+        vec![RepairStatus::Unknown],
         sm.springs.clone(),
     ]
     .concat();

@@ -7,21 +7,21 @@ advent_of_code::solution!(14);
 
 #[derive(Eq, PartialEq, Copy, Clone, Hash, Debug)]
 enum ReflectorTile {
-    OBSTACLE,
-    ROCK,
-    GROUND,
+    Obstacle,
+    Rock,
+    Ground,
 }
 
 fn parse(input: &str) -> DenseGrid<ReflectorTile> {
     DenseGrid::parse(
         input,
         |c| match c {
-            'O' => ReflectorTile::ROCK,
-            '#' => ReflectorTile::OBSTACLE,
-            '.' => ReflectorTile::GROUND,
+            'O' => ReflectorTile::Rock,
+            '#' => ReflectorTile::Obstacle,
+            '.' => ReflectorTile::Ground,
             _ => panic!("Invalid tile"),
         },
-        Some(ReflectorTile::OBSTACLE),
+        Some(ReflectorTile::Obstacle),
     )
 }
 
@@ -30,18 +30,18 @@ fn move_all_the_way(v: &Vec<&ReflectorTile>) -> Vec<ReflectorTile> {
 
     for (i, tile) in v.iter().enumerate() {
         match tile {
-            ReflectorTile::ROCK => result.push(ReflectorTile::ROCK),
-            ReflectorTile::OBSTACLE => result.extend(
-                [ReflectorTile::GROUND]
+            ReflectorTile::Rock => result.push(ReflectorTile::Rock),
+            ReflectorTile::Obstacle => result.extend(
+                [ReflectorTile::Ground]
                     .repeat(i - result.len())
                     .iter()
-                    .chain([ReflectorTile::OBSTACLE].iter()),
+                    .chain([ReflectorTile::Obstacle].iter()),
             ),
-            ReflectorTile::GROUND => {}
+            ReflectorTile::Ground => {}
         }
     }
 
-    result.extend([ReflectorTile::GROUND].repeat(v.len() - result.len()));
+    result.extend([ReflectorTile::Ground].repeat(v.len() - result.len()));
 
     result
 }
@@ -52,7 +52,7 @@ fn move_north(grid: &DenseGrid<ReflectorTile>) -> DenseGrid<ReflectorTile> {
         .map(|col| move_all_the_way(&col))
         .collect_vec();
 
-    DenseGrid::from_columns(&moved, Some(ReflectorTile::OBSTACLE)).expect("failed to assemble grid")
+    DenseGrid::from_columns(&moved, Some(ReflectorTile::Obstacle)).expect("failed to assemble grid")
 }
 
 fn move_south(grid: &DenseGrid<ReflectorTile>) -> DenseGrid<ReflectorTile> {
@@ -63,7 +63,7 @@ fn move_south(grid: &DenseGrid<ReflectorTile>) -> DenseGrid<ReflectorTile> {
         .map(|col| col.iter().rev().cloned().collect_vec())
         .collect_vec();
 
-    DenseGrid::from_columns(&moved, Some(ReflectorTile::OBSTACLE)).expect("failed to assemble grid")
+    DenseGrid::from_columns(&moved, Some(ReflectorTile::Obstacle)).expect("failed to assemble grid")
 }
 
 fn move_west(grid: &DenseGrid<ReflectorTile>) -> DenseGrid<ReflectorTile> {
@@ -72,7 +72,7 @@ fn move_west(grid: &DenseGrid<ReflectorTile>) -> DenseGrid<ReflectorTile> {
         .map(|col| move_all_the_way(&col.iter().collect_vec()))
         .collect_vec();
 
-    DenseGrid::from_rows(&moved, Some(ReflectorTile::OBSTACLE)).expect("failed to assemble grid")
+    DenseGrid::from_rows(&moved, Some(ReflectorTile::Obstacle)).expect("failed to assemble grid")
 }
 
 fn move_east(grid: &DenseGrid<ReflectorTile>) -> DenseGrid<ReflectorTile> {
@@ -83,7 +83,7 @@ fn move_east(grid: &DenseGrid<ReflectorTile>) -> DenseGrid<ReflectorTile> {
         .map(|col| col.iter().rev().cloned().collect_vec())
         .collect_vec();
 
-    DenseGrid::from_rows(&moved, Some(ReflectorTile::OBSTACLE)).expect("failed to assemble grid")
+    DenseGrid::from_rows(&moved, Some(ReflectorTile::Obstacle)).expect("failed to assemble grid")
 }
 
 trait CalcLoad {
@@ -103,9 +103,9 @@ impl CalcLoad for Vec<&ReflectorTile> {
         self.iter()
             .enumerate()
             .map(|(i, tile)| match tile {
-                ReflectorTile::OBSTACLE => 0,
-                ReflectorTile::ROCK => len - i,
-                ReflectorTile::GROUND => 0,
+                ReflectorTile::Obstacle => 0,
+                ReflectorTile::Rock => len - i,
+                ReflectorTile::Ground => 0,
             })
             .sum::<usize>()
     }
@@ -121,9 +121,9 @@ impl CalcLoad for DenseGrid<ReflectorTile> {
 fn print_grid(grid: &DenseGrid<ReflectorTile>) {
     grid.rows_iter().for_each(|r| {
         r.iter().for_each(|tile| match tile {
-            ReflectorTile::OBSTACLE => print!("#"),
-            ReflectorTile::ROCK => print!("O"),
-            ReflectorTile::GROUND => print!("."),
+            ReflectorTile::Obstacle => print!("#"),
+            ReflectorTile::Rock => print!("O"),
+            ReflectorTile::Ground => print!("."),
         });
         println!();
     })
