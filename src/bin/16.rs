@@ -211,7 +211,7 @@ fn parse_grid(input: &str) -> DenseGrid<MirrorTile> {
 pub fn part_one(input: &str) -> Option<usize> {
     let board = parse_grid(input);
 
-    let total_powered = calc_total_powered(
+    let total_powered = calc_total_power(
         &board,
         Beam {
             start: XY(-1, 0),
@@ -222,7 +222,7 @@ pub fn part_one(input: &str) -> Option<usize> {
     Some(total_powered)
 }
 
-fn calc_total_powered(board: &DenseGrid<MirrorTile>, initial_beam: Beam) -> usize {
+fn calc_total_power(board: &DenseGrid<MirrorTile>, initial_beam: Beam) -> usize {
     let mut energy_grid =
         DenseGrid::new_filled(board.width, board.height(), TileEnergy::empty(), None);
     let mut active_beams = VecDeque::new();
@@ -271,7 +271,7 @@ pub fn part_two(input: &str) -> Option<usize> {
         .chain(left_edge)
         .chain(right_edge)
         .par_bridge()
-        .map(|beam| calc_total_powered(&board, beam))
+        .map(|beam| calc_total_power(&board, beam))
         .max();
 
     max_energy
