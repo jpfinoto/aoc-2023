@@ -48,6 +48,15 @@ where
         }
     }
 
+    pub fn set_if_inbounds(&mut self, xy: XY, value: T) {
+        let (x, y) = xy.as_tuple();
+
+        if x >= 0 && y >= 0 && x < (self.width as i64) && y < (self.height() as i64) {
+            let index = y * (self.width as i64) + x;
+            self.items[index as usize] = value;
+        }
+    }
+
     pub fn get_mut(&mut self, xy: XY) -> Option<&mut T> {
         let (x, y) = xy.as_tuple();
 
