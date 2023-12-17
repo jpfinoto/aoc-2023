@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Formatter};
 
+use itertools::Itertools;
 use pathfinding::prelude::astar;
 
 use advent_of_code::utils::dense_grid::{DenseGrid, DOWN, LEFT, RIGHT, UP};
@@ -13,7 +14,7 @@ struct CrucibleConfig {
     max_moves: i64,
 }
 
-#[derive(Eq, PartialEq, Hash, Copy, Clone)]
+#[derive(Eq, PartialEq, Hash, Clone)]
 struct Node {
     config: CrucibleConfig,
     enter: XY,
@@ -40,55 +41,56 @@ impl Debug for Node {
     }
 }
 
-trait NextNodes {
-    fn next_nodes(&self, board: &DenseGrid<i64>) -> Vec<Node>;
-}
+const FROM_START: &[XY] = &[UP, DOWN, LEFT, RIGHT];
+const FROM_LEFT: &[XY] = &[UP, DOWN];
+const FROM_RIGHT: &[XY] = &[UP, DOWN];
+const FROM_UP: &[XY] = &[LEFT, RIGHT];
+const FROM_DOWN: &[XY] = &[LEFT, RIGHT];
 
-impl NextNodes for Node {
-    fn next_nodes(&self, board: &DenseGrid<i64>) -> Vec<Node> {
-        let mut nodes = vec![];
+impl Node {
+    fn next_nodes<'a>(&'a self, board: &'a DenseGrid<i64>) -> Vec<(Node, i64)> {
+        // TODO: figure out a way to not return the full vector.
+        //       we should return an iterator that lazily computes more nodes
 
-        if self.is_start {
-            for dir in [UP, DOWN, LEFT, RIGHT] {
-                nodes.extend(
-                    Node {
-                        config: self.config,
-                        enter: self.enter,
-                        exit: self.enter,
-                        loss: 0,
-                        direction: dir,
-                        is_start: false,
-                    }
-                    .next_nodes(board),
-                )
-            }
+        let possible_moves = if self.is_start {
+            FROM_START
         } else {
-            for new_dir in [self.direction.turn_left(), self.direction.turn_right()] {
-                let start = self.exit + new_dir;
-                for moves in (self.config.min_moves - 1)..self.config.max_moves {
-                    let end = start + new_dir * moves;
-                    if let Some(_) = board.get(end) {
-                        let loss = board
-                            .rect_range_inclusive(start, end)
-                            .flat_map(|(_, loss)| loss)
-                            .sum();
-
-                        let new_node = Node {
-                            config: self.config,
-                            enter: start,
-                            exit: end,
-                            loss,
-                            direction: new_dir,
-                            is_start: false,
-                        };
-
-                        nodes.push(new_node)
-                    }
-                }
+            match self.direction {
+                UP => FROM_UP,
+                DOWN => FROM_DOWN,
+                RIGHT => FROM_RIGHT,
+                LEFT => FROM_LEFT,
+                _ => panic!(),
             }
-        }
+        };
 
-        nodes
+        possible_moves
+            .iter()
+            .map(move |&new_dir| {
+                let start = self.exit + new_dir;
+                ((self.config.min_moves - 1)..self.config.max_moves).flat_map(move |moves| {
+                    let end = start + new_dir * moves;
+                    let _ = board.get(end)?;
+
+                    let loss = board
+                        .rect_range_inclusive(start, end)
+                        .flat_map(|(_, loss)| loss)
+                        .sum();
+
+                    let new_node = Node {
+                        config: self.config,
+                        enter: start,
+                        exit: end,
+                        loss,
+                        direction: new_dir,
+                        is_start: false,
+                    };
+
+                    Some((new_node, loss))
+                })
+            })
+            .flatten()
+            .collect_vec()
     }
 }
 
@@ -109,11 +111,7 @@ fn find_shortest_path(
 
     let Some((path, loss)) = astar(
         &start_node,
-        |node| {
-            node.next_nodes(boards)
-                .into_iter()
-                .map(move |node| (node, node.loss))
-        },
+        |node| node.next_nodes(boards),
         |node| (node.exit - target).manhattan_dist(),
         |node| node.exit == target,
     ) else {
