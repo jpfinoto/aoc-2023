@@ -1,6 +1,5 @@
 use std::fmt::{Debug, Formatter};
 
-use itertools::Itertools;
 use pathfinding::prelude::astar;
 
 use advent_of_code::utils::dense_grid::{DenseGrid, DOWN, LEFT, RIGHT, UP};
@@ -68,11 +67,12 @@ impl NextNodes for Node {
                 let start = self.exit + new_dir;
                 for moves in (self.config.min_moves - 1)..self.config.max_moves {
                     let end = start + new_dir * moves;
-                    let loss = board
-                        .rect_range_inclusive(start, end)
-                        .flat_map(|(_, loss)| loss)
-                        .sum();
                     if let Some(_) = board.get(end) {
+                        let loss = board
+                            .rect_range_inclusive(start, end)
+                            .flat_map(|(_, loss)| loss)
+                            .sum();
+
                         let new_node = Node {
                             config: self.config,
                             enter: start,
@@ -81,6 +81,7 @@ impl NextNodes for Node {
                             direction: new_dir,
                             is_start: false,
                         };
+
                         nodes.push(new_node)
                     }
                 }
@@ -110,9 +111,8 @@ fn find_shortest_path(
         &start_node,
         |node| {
             node.next_nodes(boards)
-                .iter()
-                .map(|&node| (node, node.loss))
-                .collect_vec()
+                .into_iter()
+                .map(move |node| (node, node.loss))
         },
         |node| (node.exit - target).manhattan_dist(),
         |node| node.exit == target,
