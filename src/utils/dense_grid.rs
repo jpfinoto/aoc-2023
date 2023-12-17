@@ -1,5 +1,4 @@
 use std::fmt::{Display, Formatter};
-use std::ops;
 
 use itertools::Itertools;
 
@@ -97,11 +96,10 @@ where
         })
     }
 
-    pub fn range(
-        &self,
-        x_range: ops::Range<i64>,
-        y_range: ops::Range<i64>,
-    ) -> impl Iterator<Item = (XY, Option<&T>)> {
+    pub fn range<R>(&self, x_range: R, y_range: R) -> impl Iterator<Item = (XY, Option<&T>)>
+    where
+        R: Clone + Iterator<Item = i64>,
+    {
         y_range
             .map(move |y| {
                 x_range.clone().map(move |x| {
@@ -110,6 +108,15 @@ where
                 })
             })
             .flatten()
+    }
+
+    pub fn rect_range_inclusive(&self, a: XY, b: XY) -> impl Iterator<Item = (XY, Option<&T>)> {
+        let min_x = a.0.min(b.0);
+        let max_x = a.0.max(b.0);
+        let min_y = a.1.min(b.1);
+        let max_y = a.1.max(b.1);
+
+        self.range(min_x..=max_x, min_y..=max_y)
     }
 
     pub fn from_columns(

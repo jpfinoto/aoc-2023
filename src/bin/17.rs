@@ -1,29 +1,34 @@
-use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 
 use itertools::Itertools;
-use pathfinding::prelude::{build_path, dijkstra_partial};
-use rayon::prelude::*;
+use pathfinding::prelude::astar;
 
 use advent_of_code::utils::dense_grid::{DenseGrid, DOWN, LEFT, RIGHT, UP};
 use advent_of_code::utils::geometry::XY;
 
 advent_of_code::solution!(17);
 
-#[derive(Eq, PartialEq, Hash)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
+struct CrucibleConfig {
+    min_moves: i64,
+    max_moves: i64,
+}
+
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
 struct Node {
-    id: usize,
-    tiles: Vec<XY>,
+    config: CrucibleConfig,
+    enter: XY,
+    exit: XY,
     loss: i64,
-    enter_direction: XY,
-    exits: Vec<usize>,
+    direction: XY,
+    is_start: bool,
 }
 
 impl Debug for Node {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let id = self.id;
-        let tiles = &self.tiles;
-        let dir = match self.enter_direction {
+        let enter = &self.enter;
+        let exit = &self.exit;
+        let dir = match self.direction {
             UP => "U",
             DOWN => "D",
             RIGHT => "R",
@@ -31,225 +36,91 @@ impl Debug for Node {
             _ => panic!(),
         };
         let loss = self.loss;
-        let exits = &self.exits;
-        let (first, last) = self.get_first_last_tile();
 
-        f.write_fmt(format_args!(
-            "Node#{id} {dir} loss {loss} into {tiles:?} -> {exits:?} // {first} -> {last}"
-        ))
+        f.write_fmt(format_args!("Node {dir} loss {loss} {enter} -> {exit}"))
     }
 }
 
-#[derive(Eq, PartialEq, Hash, Debug)]
-struct Connection {
-    position: XY,
-    direction: XY,
+trait NextNodes {
+    fn next_nodes(&self, board: &DenseGrid<i64>) -> Vec<Node>;
 }
 
-impl Node {
-    fn get_entrance(&self) -> Connection {
-        let (first, _) = self.get_first_last_tile();
+impl NextNodes for Node {
+    fn next_nodes(&self, board: &DenseGrid<i64>) -> Vec<Node> {
+        let mut nodes = vec![];
 
-        Connection {
-            position: first,
-            direction: self.enter_direction,
-        }
-    }
-
-    fn get_first_last_tile(&self) -> (XY, XY) {
-        if self.tiles.len() == 1 {
-            (self.tiles[0], self.tiles[0])
+        if self.is_start {
+            for dir in [UP, DOWN, LEFT, RIGHT] {
+                nodes.extend(
+                    Node {
+                        config: self.config,
+                        enter: self.enter,
+                        exit: self.enter,
+                        loss: 0,
+                        direction: dir,
+                        is_start: false,
+                    }
+                    .next_nodes(board),
+                )
+            }
         } else {
-            let first = *self.tiles.first().unwrap();
-            let last = *self.tiles.last().unwrap();
-            let delta = first - last;
-            if delta.normalize() == self.enter_direction {
-                (last, first)
-            } else {
-                (first, last)
+            for new_dir in [self.direction.turn_left(), self.direction.turn_right()] {
+                let start = self.exit + new_dir;
+                for moves in (self.config.min_moves - 1)..self.config.max_moves {
+                    let end = start + new_dir * moves;
+                    let loss = board
+                        .rect_range_inclusive(start, end)
+                        .flat_map(|(_, loss)| loss)
+                        .sum();
+                    if let Some(_) = board.get(end) {
+                        let new_node = Node {
+                            config: self.config,
+                            enter: start,
+                            exit: end,
+                            loss,
+                            direction: new_dir,
+                            is_start: false,
+                        };
+                        nodes.push(new_node)
+                    }
+                }
             }
         }
+
+        nodes
     }
-
-    fn get_exits(&self) -> Vec<Connection> {
-        let (_, last) = self.get_first_last_tile();
-
-        // you can't go out on the same line you came in (backwards or forwards)
-        // going forwards multiple spaces is handled by the tile spans
-        let out_directions = match self.enter_direction {
-            UP => vec![LEFT, RIGHT],
-            DOWN => vec![LEFT, RIGHT],
-            RIGHT => vec![UP, DOWN],
-            LEFT => vec![UP, DOWN],
-            _ => panic!(),
-        };
-
-        out_directions
-            .iter()
-            .map(|dir| Connection {
-                position: last + *dir,
-                direction: *dir,
-            })
-            .collect()
-    }
-}
-
-/// Generates all possible nodes give the min and max spans.
-/// The loss is accumulated over a span.
-fn generate_nodes(grid: &DenseGrid<i64>, min_span: usize, max_span: usize) -> Vec<Node> {
-    // this function is terrible
-
-    let horizontal_spans = grid
-        .rows_iter()
-        .enumerate()
-        .par_bridge()
-        .map(|(y, row)| {
-            let mut nodes = vec![];
-            for base_x in 0..row.len() {
-                for target_len in min_span..=max_span {
-                    let mut total_loss = 0i64;
-                    let mut tiles = vec![];
-                    for offset in 0..target_len {
-                        let x = base_x + offset;
-                        if let Some(loss) = row.get(x) {
-                            total_loss += loss;
-                            tiles.push(XY(x as i64, y as i64));
-                        }
-                    }
-
-                    if tiles.len() < min_span {
-                        continue;
-                    }
-
-                    if tiles.len() == 1 {
-                        for enter_direction in [UP, DOWN, LEFT, RIGHT] {
-                            nodes.push(Node {
-                                id: 0,
-                                tiles: tiles.clone(),
-                                loss: total_loss,
-                                enter_direction,
-                                exits: vec![],
-                            })
-                        }
-                    } else {
-                        for enter_direction in [LEFT, RIGHT] {
-                            nodes.push(Node {
-                                id: 0,
-                                tiles: tiles.clone(),
-                                loss: total_loss,
-                                enter_direction,
-                                exits: vec![],
-                            })
-                        }
-                    }
-                }
-            }
-
-            nodes
-        })
-        .flatten();
-
-    let vertical_spans = grid
-        .columns_iter()
-        .enumerate()
-        .par_bridge()
-        .map(|(x, col)| {
-            let mut nodes = vec![];
-            for base_y in 0..col.len() {
-                for target_len in min_span..=max_span {
-                    let mut total_loss = 0i64;
-                    let mut tiles = vec![];
-                    for offset in 0..target_len {
-                        let y = base_y + offset;
-                        if let Some(loss) = col.get(y) {
-                            total_loss += *loss;
-                            tiles.push(XY(x as i64, y as i64));
-                        }
-                    }
-                    if tiles.len() < min_span {
-                        continue;
-                    }
-
-                    if tiles.len() == 1 {
-                        for enter_direction in [UP, DOWN, LEFT, RIGHT] {
-                            nodes.push(Node {
-                                id: 0,
-                                tiles: tiles.clone(),
-                                loss: total_loss,
-                                enter_direction,
-                                exits: vec![],
-                            })
-                        }
-                    } else {
-                        for enter_direction in [UP, DOWN] {
-                            nodes.push(Node {
-                                id: 0,
-                                tiles: tiles.clone(),
-                                loss: total_loss,
-                                enter_direction,
-                                exits: vec![],
-                            })
-                        }
-                    }
-                }
-            }
-
-            nodes
-        })
-        .flatten();
-
-    // a lazy way to dedup the nodes
-    let nodes: HashSet<Node> = horizontal_spans.chain(vertical_spans).collect();
-
-    nodes.into_iter().collect()
-}
-
-fn compute_graph(grid: &DenseGrid<i64>, min_span: usize, max_span: usize) -> Vec<Node> {
-    let mut nodes = generate_nodes(grid, min_span, max_span);
-
-    // this map is (entrance_pos, enter_direction) -> Vec<node_id>
-    let node_entrances = nodes
-        .iter()
-        .enumerate()
-        .map(|(id, node)| (node.get_entrance(), id))
-        .into_group_map();
-
-    for (id, node) in &mut nodes.iter_mut().enumerate() {
-        // so far the nodes don't know their ids, so we assign it here
-        node.id = id;
-        node.exits = node
-            .get_exits()
-            .iter()
-            .flat_map(|exit| node_entrances.get(exit))
-            .flatten()
-            .cloned()
-            .collect();
-    }
-
-    nodes
 }
 
 fn find_shortest_path(
-    nodes: &Vec<Node>,
-    start_node_id: usize,
-    target_node_ids: &HashSet<usize>,
-) -> Option<(Vec<usize>, i64)> {
-    let (parents, Some(end)) = dijkstra_partial(
-        &start_node_id,
-        |id| {
-            nodes[*id]
-                .exits
+    boards: &DenseGrid<i64>,
+    start: XY,
+    target: XY,
+    config: CrucibleConfig,
+) -> Option<(Vec<Node>, i64)> {
+    let start_node = Node {
+        config,
+        enter: start,
+        exit: start,
+        loss: 0,
+        direction: XY(0, 0),
+        is_start: true,
+    };
+
+    let Some((path, loss)) = astar(
+        &start_node,
+        |node| {
+            node.next_nodes(boards)
                 .iter()
-                .map(|next_node_id| (*next_node_id, nodes[*next_node_id].loss))
+                .map(|&node| (node, node.loss))
+                .collect_vec()
         },
-        |id| target_node_ids.contains(id),
+        |node| (node.exit - target).manhattan_dist(),
+        |node| node.exit == target,
     ) else {
         return None;
     };
 
-    let path = build_path(&end, &parents);
-
-    Some((path, parents[&end].1))
+    Some((path, loss))
 }
 
 fn parse(input: &str) -> DenseGrid<i64> {
@@ -257,7 +128,7 @@ fn parse(input: &str) -> DenseGrid<i64> {
 }
 
 #[allow(dead_code)]
-fn print_path(grid: &DenseGrid<i64>, nodes: &Vec<Node>, path: &Vec<usize>) {
+fn print_path(grid: &DenseGrid<i64>, path: &Vec<Node>) {
     let mut output_grid = DenseGrid::new_filled(grid.width, grid.height(), '?', None);
 
     for (coord, el) in grid.range(0..(grid.width as i64), 0..(grid.height() as i64)) {
@@ -266,92 +137,61 @@ fn print_path(grid: &DenseGrid<i64>, nodes: &Vec<Node>, path: &Vec<usize>) {
         }
     }
 
-    for node_id in path.into_iter().skip(1) {
-        let node = &nodes[*node_id];
-        let dir_char = match node.enter_direction {
+    for node in path {
+        let dir_char = match node.direction {
             UP => '^',
             DOWN => 'v',
             RIGHT => '>',
             LEFT => '<',
             _ => '!',
         };
-        for xy in &node.tiles {
-            output_grid.set_if_inbounds(*xy, dir_char);
+
+        for xy in node.enter.rect_range_inclusive(node.exit) {
+            output_grid.set_if_inbounds(xy.clone(), dir_char);
         }
     }
 
     println!("{output_grid}");
 }
 
-fn get_min_loss(grid: &DenseGrid<i64>, nodes: &Vec<Node>, start_pos: XY, exit_pos: XY) -> i64 {
-    let start_nodes = nodes
-        .iter()
-        .filter(|node| {
-            let (first, _) = node.get_first_last_tile();
-            first == start_pos
-        })
-        .map(|node| (node.id, node.loss - grid.get(start_pos).unwrap()))
-        .collect_vec();
-
-    let exit_nodes = nodes
-        .iter()
-        .filter(|node| node.get_first_last_tile().1 == exit_pos)
-        .collect_vec();
-
-    let exit_node_ids = exit_nodes.iter().map(|node| node.id).collect();
-
-    // for node in &start_nodes {
-    //     println!("> Possible entrance: {node:?}");
-    // }
-    //
-    // for node in &exit_nodes {
-    //     println!("< Possible exit: {node:?}");
-    // }
-
-    let min_loss = start_nodes
-        .par_iter()
-        .map(|(node_id, loss_offset)| {
-            if let Some((_, loss)) = find_shortest_path(&nodes, *node_id, &exit_node_ids) {
-                let total_loss = loss + loss_offset;
-
-                // println!("! total loss: {total_loss} through path {path:?}");
-                // print_path(&grid, &nodes, &path);
-
-                total_loss
-            } else {
-                panic!("unreachable?")
-            }
-        })
-        .min()
-        .unwrap();
-
-    min_loss
-}
-
 pub fn part_one(input: &str) -> Option<i64> {
     let grid = parse(input);
-    let nodes = compute_graph(&grid, 1, 3);
     let start_pos = XY(0, 0);
     let exit_pos = XY((grid.width - 1) as i64, (grid.height() - 1) as i64);
 
-    println!("Total nodes: {}", nodes.len());
+    let (_, loss) = find_shortest_path(
+        &grid,
+        start_pos,
+        exit_pos,
+        CrucibleConfig {
+            min_moves: 1,
+            max_moves: 3,
+        },
+    )?;
 
-    let min_loss = get_min_loss(&grid, &nodes, start_pos, exit_pos);
+    // print_path(&grid, &path);
 
-    Some(min_loss)
+    Some(loss)
 }
 
 pub fn part_two(input: &str) -> Option<i64> {
     let grid = parse(input);
-    let nodes = compute_graph(&grid, 4, 10);
     let start_pos = XY(0, 0);
     let exit_pos = XY((grid.width - 1) as i64, (grid.height() - 1) as i64);
 
-    println!("Total nodes: {}", nodes.len());
+    let (_, loss) = find_shortest_path(
+        &grid,
+        start_pos,
+        exit_pos,
+        CrucibleConfig {
+            min_moves: 4,
+            max_moves: 10,
+        },
+    )?;
 
-    let min_loss = get_min_loss(&grid, &nodes, start_pos, exit_pos);
+    // print_path(&grid, &path);
 
-    Some(min_loss)
+    Some(loss)
 }
 
 #[cfg(test)]
@@ -368,5 +208,26 @@ mod tests {
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
         assert_eq!(result, Some(94));
+    }
+
+    #[test]
+    fn test_starting_node() {
+        let board = DenseGrid::new_filled(10, 10, 1i64, None);
+
+        let starting_node = Node {
+            config: CrucibleConfig {
+                min_moves: 1,
+                max_moves: 3,
+            },
+            enter: XY(0, 0),
+            exit: XY(0, 0),
+            loss: 0,
+            direction: XY(0, 0),
+            is_start: true,
+        };
+
+        for node in starting_node.next_nodes(&board) {
+            println!("{node:?}");
+        }
     }
 }
