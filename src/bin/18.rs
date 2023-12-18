@@ -1,23 +1,13 @@
-use std::collections::HashMap;
-use std::iter::once;
 use std::str::FromStr;
 
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::Regex;
-use tqdm::Iter;
 
-use advent_of_code::utils::dense_grid::{DOWN, LEFT, RIGHT, UP};
-use advent_of_code::utils::geometry;
-use advent_of_code::utils::geometry::XY;
-use advent_of_code::utils::sparse_grid::SparseGrid;
+use advent_of_code::utils::dense_grid::{DOWN, LEFT, ORIGIN, RIGHT, UP};
+use advent_of_code::utils::geometry::{shoelace_area, XY};
 
 advent_of_code::solution!(18);
-
-#[derive(Debug)]
-struct Color {
-    value: u32,
-}
 
 #[derive(Debug)]
 struct Move {
@@ -46,6 +36,10 @@ impl Move {
         })
     }
 
+    fn from_tuple((direction, amount): (XY, i64)) -> Self {
+        Move { direction, amount }
+    }
+
     fn parse_from_color(line: &str) -> Option<Move> {
         let captures = MOVE_RE.captures(line)?;
         let color = i64::from_str_radix(&captures["color"], 16).expect("invalid number");
@@ -61,100 +55,48 @@ impl Move {
             amount: color >> 4,
         })
     }
-
-    fn main_direction(&self) -> geometry::Direction {
-        match self.direction {
-            UP => geometry::Direction::UpDown,
-            DOWN => geometry::Direction::UpDown,
-            LEFT => geometry::Direction::LeftRight,
-            RIGHT => geometry::Direction::LeftRight,
-            _ => panic!(),
-        }
-    }
 }
 
-fn compute_boundary(moves: &Vec<Move>) -> (HashMap<XY, geometry::Direction>, SparseGrid<&Move>) {
-    let mut p = XY(0, 0);
-    let mut prev_move = moves.last();
-    let mut boundary: HashMap<XY, geometry::Direction> = HashMap::new();
-    let mut map = SparseGrid::new(None);
+fn get_points(moves: &[Move]) -> Vec<XY> {
+    let mut points = vec![];
 
-    for m in moves.iter().tqdm() {
-        let main_direction = m.main_direction();
-
-        let first_tile_dir = match prev_move
-            .and_then(|p| Some(p.direction.cross_z(&m.direction)))
-            .or(Some(0))
-            .unwrap()
-        {
-            0 => main_direction,
-            num => geometry::Direction::Corner(num),
-        };
-
-        // println!("Move is {m:?}, main dir is {main_direction:?} first dir is {first_tile_dir:?}");
-
-        boundary.insert(p, first_tile_dir);
-        map.insert(p, m);
-        for _ in 1..=m.amount {
-            p = p + m.direction;
-            boundary.insert(p, main_direction);
-        }
-
-        prev_move = Some(m);
+    for m in moves.into_iter() {
+        points.push(m.direction * m.amount + points.last().or(Some(&ORIGIN)).unwrap())
     }
 
-    (boundary, map)
+    points
 }
 
-fn get_orientation(moves: &Vec<Move>) -> i64 {
-    let orientation = moves
-        .iter()
-        .zip(moves.iter().cycle().skip(1))
-        .map(|(prev, curr)| prev.direction.cross_z(&curr.direction))
-        .sum::<i64>();
+fn calc_inner_area(moves: &[Move]) -> i64 {
+    let perimeter: i64 = moves.iter().map(|m| m.amount).sum();
+    let points = get_points(moves);
+    let shoelace_area = shoelace_area(&points) as i64;
 
-    orientation
+    shoelace_area + perimeter / 2 + 1
 }
 
-pub fn part_one(input: &str) -> Option<usize> {
+pub fn part_one(input: &str) -> Option<i64> {
     let moves = input
         .split("\n")
         .map(str::trim)
         .flat_map(Move::parse)
         .collect_vec();
 
-    let (boundary, map) = compute_boundary(&moves);
+    let area = calc_inner_area(&moves);
 
-    let inner = geometry::get_odd(
-        &boundary,
-        map.get_lower_corner()
-            .range_x_inclusive(map.get_upper_corner()),
-        map.get_lower_corner()
-            .range_y_inclusive(map.get_upper_corner()),
-    );
-
-    // geometry::print_grid(
-    //     &boundary,
-    //     &inner,
-    //     map.get_lower_corner(),
-    //     map.get_upper_corner(),
-    // );
-
-    Some(inner.len() + boundary.len())
+    Some(area)
 }
 
-pub fn part_two(input: &str) -> Option<usize> {
+pub fn part_two(input: &str) -> Option<i64> {
     let moves = input
         .split("\n")
         .map(str::trim)
         .flat_map(Move::parse_from_color)
         .collect_vec();
 
-    let orientation = get_orientation(&moves);
+    let area = calc_inner_area(&moves);
 
-    println!("Orientation: {orientation}");
-
-    None
+    Some(area)
 }
 
 #[cfg(test)]
@@ -170,52 +112,36 @@ mod tests {
     #[test]
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(952408144115));
     }
 
     #[test]
-    fn test_orientation() {
+    fn test_area() {
         assert_eq!(
-            get_orientation(&vec![
-                Move {
-                    direction: RIGHT,
-                    amount: 10
-                },
-                Move {
-                    direction: DOWN,
-                    amount: 10
-                },
-                Move {
-                    direction: LEFT,
-                    amount: 10
-                },
-                Move {
-                    direction: UP,
-                    amount: 10
-                }
-            ]),
+            calc_inner_area(&[(RIGHT, 1), (DOWN, 1), (LEFT, 1), (UP, 1)].map(Move::from_tuple)),
             4
         );
+
         assert_eq!(
-            get_orientation(&vec![
-                Move {
-                    direction: RIGHT,
-                    amount: 10
-                },
-                Move {
-                    direction: UP,
-                    amount: 10
-                },
-                Move {
-                    direction: LEFT,
-                    amount: 10
-                },
-                Move {
-                    direction: DOWN,
-                    amount: 10
-                }
-            ]),
-            -4
+            calc_inner_area(&[(RIGHT, 9), (DOWN, 9), (LEFT, 9), (UP, 9)].map(Move::from_tuple)),
+            100
+        );
+
+        assert_eq!(
+            calc_inner_area(
+                &[
+                    (RIGHT, 9),
+                    (DOWN, 9),
+                    (LEFT, 3),
+                    (UP, 3),
+                    (LEFT, 3),
+                    (DOWN, 3),
+                    (LEFT, 3),
+                    (UP, 9)
+                ]
+                .map(Move::from_tuple)
+            ),
+            94
         );
     }
 }
