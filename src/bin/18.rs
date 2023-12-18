@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::iter::once;
 use std::str::FromStr;
 
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::Regex;
-use tqdm::{tqdm, Iter};
+use tqdm::Iter;
 
 use advent_of_code::utils::dense_grid::{DOWN, LEFT, RIGHT, UP};
 use advent_of_code::utils::geometry;
@@ -105,6 +106,16 @@ fn compute_boundary(moves: &Vec<Move>) -> (HashMap<XY, geometry::Direction>, Spa
     (boundary, map)
 }
 
+fn get_orientation(moves: &Vec<Move>) -> i64 {
+    let orientation = moves
+        .iter()
+        .zip(moves.iter().cycle().skip(1))
+        .map(|(prev, curr)| prev.direction.cross_z(&curr.direction))
+        .sum::<i64>();
+
+    orientation
+}
+
 pub fn part_one(input: &str) -> Option<usize> {
     let moves = input
         .split("\n")
@@ -133,8 +144,15 @@ pub fn part_one(input: &str) -> Option<usize> {
 }
 
 pub fn part_two(input: &str) -> Option<usize> {
-    // figure out how to get the external boundary
-    // use the shoelace formula to get the area
+    let moves = input
+        .split("\n")
+        .map(str::trim)
+        .flat_map(Move::parse_from_color)
+        .collect_vec();
+
+    let orientation = get_orientation(&moves);
+
+    println!("Orientation: {orientation}");
 
     None
 }
@@ -153,5 +171,51 @@ mod tests {
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_orientation() {
+        assert_eq!(
+            get_orientation(&vec![
+                Move {
+                    direction: RIGHT,
+                    amount: 10
+                },
+                Move {
+                    direction: DOWN,
+                    amount: 10
+                },
+                Move {
+                    direction: LEFT,
+                    amount: 10
+                },
+                Move {
+                    direction: UP,
+                    amount: 10
+                }
+            ]),
+            4
+        );
+        assert_eq!(
+            get_orientation(&vec![
+                Move {
+                    direction: RIGHT,
+                    amount: 10
+                },
+                Move {
+                    direction: UP,
+                    amount: 10
+                },
+                Move {
+                    direction: LEFT,
+                    amount: 10
+                },
+                Move {
+                    direction: DOWN,
+                    amount: 10
+                }
+            ]),
+            -4
+        );
     }
 }
