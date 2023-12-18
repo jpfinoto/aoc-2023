@@ -15,6 +15,7 @@ pub const UP: XY = XY(0, -1);
 pub const DOWN: XY = XY(0, 1);
 pub const LEFT: XY = XY(-1, 0);
 pub const RIGHT: XY = XY(1, 0);
+pub const ORIGIN: XY = XY(0, 0);
 
 impl<T> DenseGrid<T>
 where

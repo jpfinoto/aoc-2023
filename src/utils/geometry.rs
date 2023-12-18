@@ -97,3 +97,23 @@ impl ops::Mul<i64> for XY {
         XY(self.0 * rhs, self.1 * rhs)
     }
 }
+
+pub fn index_wrap<T>(v: &Vec<T>, i: i64) -> &T {
+    let len = v.len() as i64;
+    let wrapped = i % len;
+    let index = if wrapped < 0 { len + wrapped } else { wrapped };
+
+    &v[index as usize]
+}
+
+pub fn shoelace_area(points: &Vec<XY>) -> f64 {
+    let mut sum = 0i64;
+
+    for (i, p) in points.iter().enumerate() {
+        let p1 = index_wrap(points, i as i64 - 1);
+        let p2 = index_wrap(points, i as i64 + 1);
+        sum += p.1 * (p1.0 - p2.0);
+    }
+
+    (sum as f64) / 2.0
+}
