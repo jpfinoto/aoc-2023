@@ -1,4 +1,6 @@
+use std::collections::{HashMap, HashSet};
 use std::fmt::Formatter;
+use std::ops::{Range, RangeInclusive};
 use std::{fmt, ops};
 
 use itertools::Itertools;
@@ -16,6 +18,16 @@ impl fmt::Display for XY {
 }
 
 impl XY {
+    #[inline]
+    pub fn x(&self) -> &i64 {
+        &self.0
+    }
+
+    #[inline]
+    pub fn y(&self) -> &i64 {
+        &self.1
+    }
+
     pub fn as_tuple(&self) -> (i64, i64) {
         (self.0, self.1)
     }
@@ -55,6 +67,44 @@ impl XY {
             .cartesian_product(min_y..=max_y)
             .map(|(x, y)| XY(x, y))
             .collect_vec()
+    }
+
+    pub fn update_min(&mut self, other: &XY) {
+        self.0 = self.0.min(other.0);
+        self.1 = self.1.min(other.1);
+    }
+
+    pub fn update_max(&mut self, other: &XY) {
+        self.0 = self.0.max(other.0);
+        self.1 = self.1.max(other.1);
+    }
+
+    pub fn cross_z(&self, other: &XY) -> i64 {
+        -other.x() * self.y() + self.x() * other.y()
+    }
+
+    pub fn range_x(&self, other: &XY) -> Range<i64> {
+        let min_x = self.x().min(other.x());
+        let max_x = self.x().max(other.x());
+
+        *min_x..*max_x
+    }
+
+    pub fn range_y(&self, other: &XY) -> Range<i64> {
+        let min_y = self.y().min(other.y());
+        let max_y = self.y().max(other.y());
+
+        *min_y..*max_y
+    }
+
+    pub fn range_x_inclusive(&self, other: &XY) -> RangeInclusive<i64> {
+        let range = self.range_x(other);
+        range.start..=range.end
+    }
+
+    pub fn range_y_inclusive(&self, other: &XY) -> RangeInclusive<i64> {
+        let range = self.range_y(other);
+        range.start..=range.end
     }
 }
 
@@ -116,4 +166,82 @@ pub fn shoelace_area(points: &Vec<XY>) -> f64 {
     }
 
     (sum as f64) / 2.0
+}
+
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+pub enum Direction {
+    UpDown,
+    LeftRight,
+    Corner(i64),
+}
+
+pub fn get_odd<XT, YT>(boundary: &HashMap<XY, Direction>, x_range: XT, y_range: YT) -> HashSet<XY>
+where
+    XT: Iterator<Item = i64> + Clone,
+    YT: Iterator<Item = i64>,
+{
+    let mut inner_tiles = HashSet::new();
+
+    for y in y_range {
+        let mut boundary_crossings = 0usize;
+        let mut last_corner = None;
+
+        for x in x_range.clone() {
+            let p = XY(x, y);
+
+            if let Some(boundary_dir) = boundary.get(&p) {
+                match boundary_dir {
+                    Direction::UpDown => {
+                        boundary_crossings += 1;
+                        last_corner = None;
+                    }
+                    Direction::LeftRight => {}
+                    Direction::Corner(dir) => {
+                        if let Some(last_dir) = last_corner {
+                            if *dir != last_dir {
+                                boundary_crossings += 1;
+                            }
+                        }
+
+                        last_corner = Some(*dir)
+                    }
+                }
+            } else {
+                last_corner = None;
+                if boundary_crossings % 2 == 1 {
+                    inner_tiles.insert(p);
+                }
+            }
+        }
+    }
+
+    inner_tiles
+}
+
+#[allow(dead_code)]
+pub fn print_grid(boundary: &HashMap<XY, Direction>, inner: &HashSet<XY>, p1: &XY, p2: &XY) {
+    for y in p1.range_y_inclusive(p2) {
+        for x in p1.range_x_inclusive(p2) {
+            let p = XY(x, y);
+            print!(
+                "{}",
+                match (boundary.contains_key(&p), inner.contains(&p)) {
+                    (true, false) => match boundary.get(&p).unwrap() {
+                        Direction::UpDown => '|',
+                        Direction::LeftRight => '-',
+                        Direction::Corner(i) =>
+                            if *i > 0 {
+                                '+'
+                            } else {
+                                '~'
+                            },
+                    },
+                    (false, true) => 'I',
+                    (false, false) => '.',
+                    (true, true) => 'X',
+                }
+            );
+        }
+        println!();
+    }
 }

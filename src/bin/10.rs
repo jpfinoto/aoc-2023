@@ -1,17 +1,10 @@
-use std::collections::{HashMap, HashSet};
-use std::ops::Range;
+use std::collections::HashMap;
 
 use advent_of_code::utils::dense_grid::{DenseGrid, DOWN, LEFT, RIGHT, UP};
-use advent_of_code::utils::geometry::XY;
+use advent_of_code::utils::geometry;
+use advent_of_code::utils::geometry::{Direction, XY};
 
 advent_of_code::solution!(10);
-
-#[derive(Eq, PartialEq)]
-enum Direction {
-    UpDown,
-    LeftRight,
-    Corner(i64),
-}
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 enum Pipe {
@@ -85,61 +78,6 @@ fn find_cycle(start_xy: XY, grid: &DenseGrid<Pipe>) -> (u32, HashMap<XY, Directi
     panic!("Couldn't find route");
 }
 
-fn get_odd(
-    boundary: &HashMap<XY, Direction>,
-    x_range: Range<i32>,
-    y_range: Range<i32>,
-) -> HashSet<XY> {
-    let mut inner_tiles = HashSet::new();
-
-    for y in y_range {
-        let mut boundary_crossings = 0usize;
-        let mut corner_crossings = 0i64;
-
-        for x in x_range.clone() {
-            let p = XY(x as i64, y as i64);
-
-            if let Some(boundary_dir) = boundary.get(&p) {
-                match boundary_dir {
-                    Direction::UpDown => {
-                        boundary_crossings += 1;
-                    }
-                    Direction::LeftRight => {}
-                    Direction::Corner(dir) => {
-                        corner_crossings += dir;
-                    }
-                }
-            } else {
-                if (boundary_crossings + ((corner_crossings.abs() as usize) / 2)) % 2 == 1 {
-                    inner_tiles.insert(p);
-                } else {
-                }
-            }
-        }
-    }
-
-    inner_tiles
-}
-
-#[allow(dead_code)]
-fn print_grid(boundary: &HashMap<XY, Direction>, inner: &HashSet<XY>, w: i32, h: i32) {
-    for y in 0..h {
-        for x in 0..w {
-            let p = XY(x as i64, y as i64);
-            print!(
-                "{}",
-                match (boundary.contains_key(&p), inner.contains(&p)) {
-                    (true, false) => '*',
-                    (false, true) => 'I',
-                    (false, false) => '.',
-                    (true, true) => 'X',
-                }
-            );
-        }
-        println!();
-    }
-}
-
 pub fn part_one(input: &str) -> Option<u32> {
     let grid = DenseGrid::parse(input, parse_pipe, Some(Pipe::Empty));
     let Some((_, start_xy)) = grid.find(|pipe| *pipe == Pipe::Start) else {
@@ -158,7 +96,7 @@ pub fn part_two(input: &str) -> Option<u32> {
     };
 
     let (_, boundary) = find_cycle(start_xy, &grid);
-    let inside = get_odd(&boundary, 0..(grid.width as i32), 0..(grid.height() as i32));
+    let inside = geometry::get_odd(&boundary, 0..(grid.width as i64), 0..(grid.height() as i64));
 
     let total = inside.len();
 
