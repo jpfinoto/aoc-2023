@@ -1,6 +1,7 @@
-use std::collections::HashMap;
-use std::iter;
+use std::collections::{HashMap, VecDeque};
+use std::fmt::Formatter;
 use std::str::FromStr;
+use std::{fmt, iter};
 
 use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -70,6 +71,46 @@ impl Rule {
             Condition::All => true,
         }
     }
+
+    fn split(&self, range: &PieceRange) -> (Vec<PieceRange>, Vec<(PieceRange, &RuleAction)>) {
+        match self.condition {
+            Condition::Less(prop, value) => {
+                let prop_val_low = range.get_property_low(prop);
+                let prop_val_high = range.get_property_high(prop);
+
+                if prop_val_low < value && prop_val_high < value {
+                    // both pass
+                    (vec![], vec![(*range, &self.action)])
+                } else if prop_val_low > value && prop_val_high > value {
+                    // neither pass
+                    (vec![*range], vec![])
+                } else {
+                    (
+                        vec![range.copy_with_new_lower(prop, value)],
+                        vec![(range.copy_with_new_upper(prop, value - 1), &self.action)],
+                    )
+                }
+            }
+            Condition::Greater(prop, value) => {
+                let prop_val_low = range.get_property_low(prop);
+                let prop_val_high = range.get_property_high(prop);
+
+                if prop_val_low > value && prop_val_high > value {
+                    // both pass
+                    (vec![], vec![(*range, &self.action)])
+                } else if prop_val_low < value && prop_val_high < value {
+                    // neither pass
+                    (vec![*range], vec![])
+                } else {
+                    (
+                        vec![range.copy_with_new_upper(prop, value)],
+                        vec![(range.copy_with_new_lower(prop, value + 1), &self.action)],
+                    )
+                }
+            }
+            Condition::All => (vec![], vec![(*range, &self.action)]),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -110,6 +151,28 @@ impl Workflow {
             .next()
             .map(|rule| &rule.action)
             .expect("no rule matched")
+    }
+
+    fn process_range(&self, range: &PieceRange) -> Vec<(PieceRange, &RuleAction)> {
+        let mut handled = vec![];
+        let mut unhandled = vec![*range];
+
+        for rule in &self.rules {
+            let mut new_unhandled = vec![];
+
+            for current_range in &unhandled {
+                let (rule_unhandled, rule_handled) = rule.split(current_range);
+
+                new_unhandled.extend_from_slice(&rule_unhandled);
+                handled.extend_from_slice(&rule_handled);
+            }
+
+            unhandled = new_unhandled;
+        }
+
+        assert_eq!(unhandled.len(), 0);
+
+        handled
     }
 }
 
@@ -156,6 +219,57 @@ impl Piece {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+struct PieceRange {
+    from: [i64; 4],
+    to: [i64; 4],
+}
+
+impl fmt::Display for PieceRange {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!(
+            "{}-{},{}-{},{}-{},{}-{}",
+            self.from[0],
+            self.to[0],
+            self.from[1],
+            self.to[1],
+            self.from[2],
+            self.to[2],
+            self.from[3],
+            self.to[3],
+        ))
+    }
+}
+
+impl PieceRange {
+    fn get_property_low(&self, prop: char) -> i64 {
+        self.from[Piece::property_index(prop)]
+    }
+
+    fn get_property_high(&self, prop: char) -> i64 {
+        self.to[Piece::property_index(prop)]
+    }
+
+    fn copy_with_new_lower(&self, prop: char, value: i64) -> PieceRange {
+        let mut copy = self.clone();
+        copy.from[Piece::property_index(prop)] = value;
+        copy
+    }
+
+    fn copy_with_new_upper(&self, prop: char, value: i64) -> PieceRange {
+        let mut copy = self.clone();
+        copy.to[Piece::property_index(prop)] = value;
+        copy
+    }
+
+    fn combinations(&self) -> i64 {
+        (0..4)
+            .map(|i| self.to[i] - self.from[i] + 1)
+            .reduce(|p, c| p * c)
+            .unwrap()
+    }
+}
+
 fn blocks(input: &str) -> (&str, &str) {
     input
         .split("\n\n")
@@ -186,8 +300,41 @@ pub fn part_one(input: &str) -> Option<i64> {
     Some(accepted_total)
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
-    None
+pub fn part_two(input: &str) -> Option<i64> {
+    let (workflows_block, _) = blocks(input);
+    let workflow_list = workflows_block
+        .split("\n")
+        .flat_map(Workflow::parse)
+        .collect_vec();
+
+    let workflows: HashMap<u64, &Workflow> =
+        HashMap::from_iter(workflow_list.iter().map(|wf| (wf.id, wf)));
+
+    let mut queue = VecDeque::from([(
+        PieceRange {
+            from: [1, 1, 1, 1],
+            to: [4000, 4000, 4000, 4000],
+        },
+        workflows[&Workflow::parse_id("in")],
+    )]);
+
+    let mut approved = vec![];
+
+    while let Some((range, wf)) = queue.pop_front() {
+        for (new_range, action) in wf.process_range(&range) {
+            match action {
+                RuleAction::Workflow(id) => queue.push_back((new_range, workflows[id])),
+                RuleAction::Accept => approved.push(new_range),
+                RuleAction::Reject => {}
+            }
+        }
+    }
+
+    // for r in &approved {
+    //     println!("A: {r}");
+    // }
+
+    Some(approved.iter().map(PieceRange::combinations).sum())
 }
 
 #[cfg(test)]
@@ -203,6 +350,6 @@ mod tests {
     #[test]
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(167409079868000));
     }
 }
