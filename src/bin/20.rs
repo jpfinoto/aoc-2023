@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use itertools::Itertools;
+use num::integer::lcm;
 
 advent_of_code::solution!(20);
 
@@ -15,7 +16,6 @@ enum ModuleType {
     Broadcaster,
     FlipFlop,
     Conjunction,
-    Bundle,
 }
 
 #[derive(Debug)]
@@ -198,33 +198,6 @@ impl Module for ConjunctionModule {
     }
 }
 
-#[derive(Debug)]
-struct BundleModule {
-    base: ModuleBase,
-}
-
-impl BundleModule {
-    fn new(name: String) -> Self {
-        Self {
-            base: ModuleBase::new(name, ModuleType::Bundle),
-        }
-    }
-}
-
-impl Module for BundleModule {
-    fn handle(&mut self, transmission: Transmission) -> Vec<Transmission> {
-        vec![]
-    }
-
-    fn base(&self) -> &ModuleBase {
-        &self.base
-    }
-
-    fn base_mut(&mut self) -> &mut ModuleBase {
-        &mut self.base
-    }
-}
-
 fn parse_line(line: &str) -> Option<(String, ModuleType, Vec<String>)> {
     let (declaration, connections) = line.split(" -> ").next_tuple()?;
 
@@ -248,17 +221,21 @@ fn parse_line(line: &str) -> Option<(String, ModuleType, Vec<String>)> {
 }
 
 type ModuleMap = HashMap<String, Box<dyn Module>>;
+
+fn build_module(name: &String, module_type: &ModuleType) -> Box<dyn Module> {
+    match module_type {
+        ModuleType::Broadcaster => Box::new(BroadcastModule::new(name.clone())),
+        ModuleType::FlipFlop => Box::new(FlipFlopModule::new(name.clone())),
+        ModuleType::Conjunction => Box::new(ConjunctionModule::new(name.clone())),
+    }
+}
+
 fn build(input: &str) -> ModuleMap {
     let decl = input.split("\n").flat_map(parse_line).collect_vec();
     let mut modules: HashMap<String, Box<dyn Module>> = HashMap::new();
 
     for (name, module_type, _) in &decl {
-        let new_module: Box<dyn Module> = match module_type {
-            ModuleType::Broadcaster => Box::new(BroadcastModule::new(name.clone())),
-            ModuleType::FlipFlop => Box::new(FlipFlopModule::new(name.clone())),
-            ModuleType::Conjunction => Box::new(ConjunctionModule::new(name.clone())),
-            _ => panic!("cannot build this type of module"),
-        };
+        let new_module: Box<dyn Module> = build_module(name, module_type);
 
         modules.insert(name.clone(), new_module);
     }
@@ -303,10 +280,8 @@ fn print_mermaid_diagram(modules: &ModuleMap) {
     println!("stateDiagram-v2");
     println!("    classDef flip fill:#faa");
     println!("    classDef conj fill:#afa");
-    println!("    classDef bundle fill:#f0f");
     println!("    classDef rx fill:#00f,color:#fff");
     println!("    class rx rx");
-    println!("    [*] --> broadcaster");
 
     for module in modules.values() {
         for output in module.outputs() {
@@ -316,7 +291,6 @@ fn print_mermaid_diagram(modules: &ModuleMap) {
             ModuleType::Broadcaster => {}
             ModuleType::FlipFlop => println!("    class {} flip", module.name()),
             ModuleType::Conjunction => println!("    class {} conj", module.name()),
-            ModuleType::Bundle => println!("    class {} bundle", module.name()),
         }
     }
 }
@@ -346,14 +320,72 @@ fn get_block_inputs_and_outputs<'a>(
     )
 }
 
-fn build_groups(modules: &ModuleMap) -> Vec<(HashSet<&String>, &String, &String)> {
+struct SubGroup {
+    input_name: String,
+    modules: ModuleMap,
+}
+
+fn assemble_subgroup(
+    modules: &ModuleMap,
+    members: HashSet<&String>,
+    input_name: &String,
+    output_name: &String,
+) -> SubGroup {
+    let mut new_modules: ModuleMap = modules
+        .values()
+        .filter(|m| members.contains(m.name()))
+        .map(|m| {
+            let mut module = build_module(m.name(), &m.base().module_type);
+
+            for conn in m.inputs().iter().filter(|c| members.contains(c)) {
+                module.connect_input(conn.clone());
+            }
+
+            for conn in m.outputs().iter().filter(|c| members.contains(c)) {
+                module.connect_output(conn.clone());
+            }
+
+            (module.name().clone(), module)
+        })
+        .collect();
+
+    new_modules
+        .get_mut(output_name)
+        .unwrap()
+        .connect_output("output".to_string());
+
+    SubGroup {
+        input_name: input_name.into(),
+        modules: new_modules,
+    }
+}
+
+fn build_groups(modules: &ModuleMap) -> Vec<SubGroup> {
     let mut groups = vec![];
+
     for base_mod_id in modules.get("broadcaster").unwrap().outputs() {
         let mut current_group = HashSet::from([base_mod_id]);
         loop {
             let (inputs, outputs) = get_block_inputs_and_outputs(&current_group, &modules);
             if inputs.len() == 1 && outputs.len() == 1 {
-                groups.push((current_group, inputs[0], outputs[0]));
+                let output_module = current_group
+                    .iter()
+                    .filter(|m| {
+                        modules
+                            .get(**m)
+                            .unwrap()
+                            .outputs()
+                            .contains(outputs[0])
+                    })
+                    .exactly_one()
+                    .unwrap();
+
+                groups.push(assemble_subgroup(
+                    modules,
+                    current_group.clone(),
+                    base_mod_id,
+                    output_module,
+                ));
                 break;
             }
             if inputs.len() != 1 {
@@ -366,61 +398,6 @@ fn build_groups(modules: &ModuleMap) -> Vec<(HashSet<&String>, &String, &String)
         }
     }
     groups
-}
-
-fn rewire(modules: &ModuleMap, groups: &Vec<(HashSet<&String>, &String, &String)>) -> ModuleMap {
-    let mut new_modules: HashMap<String, Box<dyn Module>> = HashMap::new();
-
-    for old_module in modules.values() {
-        let name = old_module.name();
-
-        if groups.iter().any(|(g, _, _)| g.contains(name)) {
-            continue;
-        }
-
-        let new_module: Box<dyn Module> = match old_module.base().module_type {
-            ModuleType::Broadcaster => Box::new(BroadcastModule::new(name.clone())),
-            ModuleType::FlipFlop => Box::new(FlipFlopModule::new(name.clone())),
-            ModuleType::Conjunction => Box::new(ConjunctionModule::new(name.clone())),
-            _ => panic!("cannot build this type of module"),
-        };
-
-        new_modules.insert(name.clone(), new_module);
-    }
-
-    let mut remap_outputs = HashMap::new();
-
-    for (members, _, main_output) in groups {
-        let group_name = members.iter().sorted().join("");
-
-        let mut module = BundleModule::new(group_name.clone());
-        module.connect_output(main_output.to_string());
-
-        remap_outputs.extend(members.iter().map(|m| (*m, group_name.clone())));
-        new_modules.insert(group_name.clone(), Box::new(module));
-    }
-
-    for module in modules.values() {
-        let name = module.name();
-        if !new_modules.contains_key(name) {
-            continue;
-        }
-
-        for c in module.outputs() {
-            let actual_output = remap_outputs.get(c).or(Some(c)).unwrap();
-
-            new_modules
-                .get_mut(name)
-                .unwrap()
-                .connect_output(actual_output.clone());
-
-            if let Some(output_module) = new_modules.get_mut(actual_output) {
-                output_module.connect_input(name.clone());
-            }
-        }
-    }
-
-    new_modules
 }
 
 pub fn part_one(input: &str) -> Option<i64> {
@@ -441,18 +418,38 @@ pub fn part_one(input: &str) -> Option<i64> {
         total_high += new_high;
     }
 
-    println!("Low: {total_low}, high: {total_high}");
+    // println!("Low: {total_low}, high: {total_high}");
 
     Some(total_low * total_high)
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
-    let mut modules = build(input);
-    let groups = build_groups(&modules);
-    modules = rewire(&modules, &groups);
-    print_mermaid_diagram(&modules);
+pub fn part_two(input: &str) -> Option<u64> {
+    let modules = build(input);
 
-    None
+    // print_mermaid_diagram(&modules);
+
+    let mut groups = build_groups(&modules);
+    let mut cycle = vec![];
+
+    for g in &mut groups {
+        // print_mermaid_diagram(&g.modules);
+        for i in 0u64.. {
+            let (_, _, unhandled) = step(
+                &mut g.modules,
+                Transmission {
+                    signal: SignalLevel::Low,
+                    target: g.input_name.clone(),
+                    source: "broadcaster".to_string(),
+                },
+            );
+            if unhandled.iter().any(|t| t.signal == SignalLevel::High) {
+                cycle.push(i + 1);
+                break;
+            }
+        }
+    }
+
+    cycle.into_iter().reduce(lcm)
 }
 
 #[cfg(test)]
