@@ -245,3 +245,7 @@ pub fn print_grid(boundary: &HashMap<XY, Direction>, inner: &HashSet<XY>, p1: &X
         println!();
     }
 }
+
+pub fn wrap_number<T: num::Integer + Copy>(n: T, m: T) -> T {
+    ((n % m) + m) % m
+}

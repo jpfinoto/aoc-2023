@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 
 use itertools::Itertools;
 
-use crate::utils::geometry::XY;
+use crate::utils::geometry::{wrap_number, XY};
 
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct DenseGrid<T> {
@@ -68,7 +68,10 @@ where
         }
     }
 
-    pub fn find(&self, predicate: fn(item: &T) -> bool) -> Option<(&T, XY)> {
+    pub fn find<F>(&self, predicate: F) -> Option<(&T, XY)>
+    where
+        F: Fn(&T) -> bool,
+    {
         self.items
             .iter()
             .enumerate()
@@ -167,6 +170,39 @@ where
             filler,
             items: vec![base; width * height],
         }
+    }
+
+    pub fn find_one(&self, target: &T) -> Option<XY>
+    where
+        T: Eq + PartialEq,
+    {
+        Some(self.find(|el| el == target)?.1)
+    }
+
+    pub fn cardinal_neighbours<'a>(
+        &'a self,
+        pos: &'a XY,
+    ) -> impl Iterator<Item = (XY, Option<&T>)> + 'a {
+        [UP, DOWN, LEFT, RIGHT].iter().map(|d| {
+            let p = *pos + d;
+            (p, self.get(p))
+        })
+    }
+
+    pub fn cardinal_neighbours_with_wrapping<'a>(
+        &'a self,
+        pos: &'a XY,
+    ) -> impl Iterator<Item = (XY, Option<&T>)> + 'a {
+        [UP, DOWN, LEFT, RIGHT].iter().map(|d| {
+            let p = self.wrap(&(*pos + d));
+            (p, self.get(p))
+        })
+    }
+    fn wrap(&self, p: &XY) -> XY {
+        XY(
+            wrap_number(*p.x(), self.width as i64),
+            wrap_number(*p.y(), self.height() as i64),
+        )
     }
 }
 
